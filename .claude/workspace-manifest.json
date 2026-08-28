@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "managedBy": "setup-prd-workspace",
+  "workspaceRoot": ".",
+  "entries": [
+    { "path": "AGENTS.md", "kind": "file", "ownership": "created" },
+    { "path": "CLAUDE.md", "kind": "file", "ownership": "created" },
+    { "path": "roadmap.md", "kind": "file", "ownership": "created" },
+    { "path": "review.md", "kind": "file", "ownership": "created" },
+    { "path": "context", "kind": "directory", "ownership": "created" },
+    { "path": "customers", "kind": "directory", "ownership": "created" },
+    { "path": "tickets", "kind": "directory", "ownership": "created" },
+    { "path": "spec", "kind": "directory", "ownership": "created" },
+    { "path": "plans", "kind": "directory", "ownership": "created" },
+    { "path": "demos", "kind": "directory", "ownership": "created" },
+    { "path": "routines", "kind": "directory", "ownership": "created" }
+  ]
+}
