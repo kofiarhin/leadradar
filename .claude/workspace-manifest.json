@@ -13,7 +13,6 @@
     { "path": "spec", "kind": "directory", "ownership": "created" },
     { "path": "plans", "kind": "directory", "ownership": "created" },
     { "path": "demos", "kind": "directory", "ownership": "created" },
-    { "path": "routines", "kind": "directory", "ownership": "created" },
-    { "path": ".claude/workspace-manifest.json", "kind": "file", "ownership": "created" }
+    { "path": "routines", "kind": "directory", "ownership": "created" }
   ]
 }
