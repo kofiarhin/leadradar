@@ -26,11 +26,22 @@ Durable business records are workspace-scoped even though V1 has one owner/works
 
 ## Implemented
 
-No application/runtime architecture is implemented in the repository yet. Current repository evidence contains the approved PRD and technical specification plus this operating workspace only.
+The modular-monolith skeleton exists, limited to what owner authentication required:
+
+- root npm workspace with `client/`, `server/`, and `packages/shared/` as specified;
+- `server/src/app.ts` builds the Express app without connecting or listening; `server/src/server.ts` is the only entry that opens a port; `server/src/seed.cli.ts` is a separate explicit command;
+- domain modules `auth` and `workspaces` under `server/src/modules/`; no other module and no provider adapter exists yet;
+- MongoDB via Mongoose, with sessions stored in MongoDB through `connect-mongo` so session state does not depend on process memory;
+- `packages/shared/` exports zod schemas, types, and error-code constants consumed by both sides; it is built to `dist/` and resolved through the workspace link;
+- the client uses TanStack Query for server state with all fetch calls confined to `client/src/api/`.
+
+Two conventions were established here that later work inherits: protected routes are grouped behind `requireAuth` so new routes are default-deny without opting in, and state-changing routes are grouped behind origin validation for the same reason.
+
+The worker process type, job queue, and provider adapters remain unimplemented.
 
 ## Verified
 
-Repository inspection confirms application implementation has not started. No runtime, data-model, provider-adapter, build, or deployment behaviour has been verified.
+Automated tests, type-checking, lint, and build pass. A real server process was exercised end to end over HTTP against an in-memory MongoDB, covering seeding, login, session reads, workspace scoping, and logout. Browser behaviour, provider integrations, workers, and deployment have not been verified.
 
 ## Constraints
 

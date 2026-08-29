@@ -1,0 +1,37 @@
+{
+  "name": "@leadradar/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LeadRadar Express API and domain modules.",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "seed": "tsx src/seed.cli.ts",
+    "prebuild": "npm run build --workspace @leadradar/shared",
+    "build": "tsc -p tsconfig.json",
+    "pretypecheck": "npm run build --workspace @leadradar/shared",
+    "typecheck": "tsc -p tsconfig.typecheck.json",
+    "pretest": "npm run build --workspace @leadradar/shared",
+    "test": "jest --runInBand"
+  },
+  "dependencies": {
+    "connect-mongo": "^6.0.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.6.2",
+    "express-session": "^1.19.0",
+    "mongoose": "^9.9.4",
+    "zod": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.19.0",
+    "@types/jest": "^30.0.0",
+    "@types/supertest": "^7.2.1",
+    "jest": "^30.5.0",
+    "mongodb-memory-server": "^11.2.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.4.12",
+    "tsx": "^4.23.12"
+  }
+}

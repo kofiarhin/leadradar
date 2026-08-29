@@ -1,0 +1,32 @@
+{
+  "name": "leadradar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turns public LinkedIn post engagement into a focused list of prospects worth contacting.",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "build": "npm run build --workspaces --if-present",
+    "seed": "npm run seed --workspace server",
+    "start": "npm run start --workspace server"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "eslint": "^10.9.1",
+    "prettier": "^3.9.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.68.0"
+  }
+}
