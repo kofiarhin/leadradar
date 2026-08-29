@@ -1,0 +1,37 @@
+{
+  "name": "@leadradar/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "LeadRadar React client.",
+  "scripts": {
+    "dev": "vite",
+    "prebuild": "npm run build --workspace @leadradar/shared",
+    "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
+    "pretypecheck": "npm run build --workspace @leadradar/shared",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "npm run build --workspace @leadradar/shared",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.102.8",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3"
+  },
+  "devDependencies": {
+    "@leadradar/shared": "*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11"
+  }
+}
