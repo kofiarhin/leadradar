@@ -16,6 +16,7 @@ The complete V1 product journey in `docs/PRD.md` remains to be implemented.
 ## In Progress
 
 - `tickets/001-owner-login.md` — `verifying`. Implementation and automated verification are complete; the browser pass remains outstanding.
+- `tickets/002-vertical-profile.md` — `verifying` on PR #3. Implementation is present; exact-head automated verification and browser review remain outstanding.
 
 ## Implemented
 
@@ -29,25 +30,41 @@ Owner authentication and the application skeleton it required:
 - `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`, `GET /api/v1/workspace`;
 - MongoDB-backed `express-session` with an HttpOnly cookie, session regeneration on login, and destruction on logout;
 - strict allowed-origin validation on state-changing routes, default-deny CORS, a JSON content-type guard, and login rate limiting;
-- a React login screen, route guard, and authenticated placeholder using TanStack Query.
+- a React login screen and authenticated route guard using TanStack Query.
 
-Nothing else from the V1 journey is implemented. No provider adapter, job queue, worker process, or vertical profile exists.
+Vertical profile implementation on `feat/002-vertical-profile` / PR #3:
+
+- shared zod contracts and response types for the V1 vertical profile;
+- workspace-scoped `VerticalProfile` Mongoose model with versioning;
+- authenticated `GET /api/v1/vertical-profile` and guarded `PUT /api/v1/vertical-profile` create/update flow;
+- editable authenticated dashboard form with loading, empty, success, and error states;
+- server and client automated coverage for the profile flow;
+- `.github/workflows/ci.yml` to run tests, typecheck, lint, and build for pull requests.
+
+Campaigns, provider adapters, jobs, worker processes, qualification, enrichment, outreach, replies, opportunities, and metrics are not implemented yet.
 
 ## Verified
 
+Previously verified on the owner-auth implementation:
+
 - `npm test` — Passed. 59 server tests (Jest + Supertest) and 15 client tests (Vitest + RTL), run with no `MONGODB_URI`, no credentials, and no network.
 - `npm run typecheck`, `npm run lint`, `npm run build` — Passed.
-- Runtime verification against a real server process backed by an in-memory MongoDB — Passed: idempotent seeding, 401 on unauthenticated reads, 403 on cross-site login, 401 on wrong password, successful login with no CORS header, session and workspace reads scoped from the session, 204 logout, and 401 on both protected reads afterwards.
-- Browser verification — **Not run**. No browser tooling or MongoDB instance was available. Desktop/mobile widths, console checks, and the keyboard pass remain unverified.
-- Provider integrations, workers, jobs, and deployment — Not run. None exists.
+- Runtime verification against a real server process backed by an in-memory MongoDB — Passed for the owner-auth flow.
+
+Vertical-profile exact-head verification:
+
+- GitHub Actions — pending/not observed yet for PR #3.
+- Local execution in the current Architect environment — Not run because the executor has no outbound network access to clone/install the repository.
+- Browser verification — Not run.
 
 ## Released
 
-None. No deployment or release evidence exists in the repository setup checkpoint.
+None. No deployment or release evidence exists.
 
 ## Unresolved
 
 - Exact provider endpoints/model/Actor identifiers require implementation-time verification.
 - No real customer evidence has been stored under `customers/` yet.
-- The browser pass for the login flow has not been run, so two acceptance criteria on `tickets/001-owner-login.md` remain unproven.
+- The browser pass for the login flow remains outstanding.
+- Exact-head automated verification and browser review for ticket 002 remain outstanding.
 - The login rate limiter uses a per-process memory store. Correct for the single-dyno V1 target; it must become a shared store before the web process scales.
