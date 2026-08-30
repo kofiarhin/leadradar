@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import express, { Router, type NextFunction, type Request, type Response } from 'express';
 
 import type { AppConfig } from '../../config/env';
@@ -59,7 +60,7 @@ export function createOpportunityRouter(config: AppConfig): Router {
         const { workspaceId } = authContext(req);
         const body = req.body as { body?: unknown; subject?: unknown };
         const replyBody = typeof body.body === 'string' ? body.body.trim() : '';
-        const subject = typeof body.subject === 'string' ? body.subject.trim() : undefined;
+        const requestedSubject = typeof body.subject === 'string' ? body.subject.trim() : '';
         if (!replyBody) {
           res.status(400).json({ error: { code: 'INVALID_REPLY', message: 'Reply body is required.' } });
           return;
@@ -85,10 +86,31 @@ export function createOpportunityRouter(config: AppConfig): Router {
           });
           return;
         }
-        if (!config.hunterApiKey) throw new Error('HUNTER_NOT_CONFIGURED');
+        if (!config.hunterApiKey || !config.hunterEmailAccountId) {
+          throw new Error('HUNTER_SEND_NOT_CONFIGURED');
+        }
+
+        const latestInbound = await MessageModel.findOne({
+          workspaceId,
+          conversationId: opportunity.conversationId,
+          direction: 'INBOUND',
+        }).sort({ createdAt: -1 }).lean();
+        const subject = requestedSubject || (latestInbound?.subject
+          ? latestInbound.subject.startsWith('Re:') ? latestInbound.subject : `Re: ${latestInbound.subject}`
+          : 'Re: Our conversation');
+        const idempotencyKey = `leadradar-reply-${opportunity._id.toString()}-${createHash('sha256')
+          .update(`${subject}\n${replyBody}`)
+          .digest('hex')
+          .slice(0, 32)}`;
 
         const hunter = new HunterClient({ apiKey: config.hunterApiKey });
-        const providerMessageId = await hunter.sendManualReply({ to: email, ...(subject ? { subject } : {}), body: replyBody });
+        const providerMessageId = await hunter.sendManualReply({
+          emailAccountId: config.hunterEmailAccountId,
+          to: email,
+          subject,
+          body: replyBody,
+          idempotencyKey,
+        });
         const message = await MessageModel.create({
           workspaceId,
           conversationId: opportunity.conversationId,
@@ -98,7 +120,7 @@ export function createOpportunityRouter(config: AppConfig): Router {
           kind: 'MANUAL_REPLY',
           provider: 'HUNTER',
           providerMessageId,
-          ...(subject ? { subject } : {}),
+          subject,
           bodyText: replyBody,
           sentAt: new Date(),
         });
