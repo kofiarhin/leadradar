@@ -88,14 +88,21 @@ export class HunterClient {
     };
   }
 
-  async createSequence(name: string, idempotencyKey?: string): Promise<string> {
+  async createSequence(
+    name: string,
+    idempotencyKey?: string,
+    emailAccountIds: string[] = [],
+  ): Promise<string> {
     const response = await this.fetchImpl(this.url('/sequences'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({
+        name,
+        ...(emailAccountIds.length > 0 ? { email_account_ids: emailAccountIds } : {}),
+      }),
     });
     if (!response.ok) throw new Error(`HUNTER_SEQUENCE_CREATE_${response.status}`);
     const payload = (await response.json()) as { data?: { id?: number | string } };
