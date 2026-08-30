@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { fetchLeads } from '../api/leads';
 
 export function LeadsPage(): ReactElement {
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaignId') ?? '';
   const [search, setSearch] = useState('');
   const [qualification, setQualification] = useState('');
   const [contact, setContact] = useState('');
@@ -14,13 +16,14 @@ export function LeadsPage(): ReactElement {
 
   const params = useMemo(() => {
     const value = new URLSearchParams();
+    if (campaignId) value.set('campaignId', campaignId);
     if (search.trim()) value.set('search', search.trim());
     if (qualification) value.set('qualification', qualification);
     if (contact) value.set('contact', contact);
     if (outreach) value.set('outreach', outreach);
     if (intent) value.set('intent', intent);
     return value;
-  }, [search, qualification, contact, outreach, intent]);
+  }, [campaignId, search, qualification, contact, outreach, intent]);
 
   const leads = useQuery({
     queryKey: ['leads', params.toString()],
@@ -32,7 +35,7 @@ export function LeadsPage(): ReactElement {
     <main className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="flex items-center justify-between gap-4">
-          <div><p className="text-sm text-slate-600">Database</p><h1 className="text-2xl font-semibold text-slate-900">Leads</h1></div>
+          <div><p className="text-sm text-slate-600">Database</p><h1 className="text-2xl font-semibold text-slate-900">Leads</h1>{campaignId ? <p className="mt-1 text-sm text-slate-500">Filtered to one campaign.</p> : null}</div>
           <Link to="/" className="text-sm font-medium text-slate-700 underline">Dashboard</Link>
         </header>
         <section className="rounded-lg border border-slate-200 bg-white p-5">
