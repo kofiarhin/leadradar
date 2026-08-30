@@ -31,12 +31,8 @@ function toDto(campaign: InstanceType<typeof CampaignModel>): CampaignDto {
           discovery: {
             provider: 'APIFY',
             ...(campaign.discovery.runId ? { runId: campaign.discovery.runId } : {}),
-            ...(campaign.discovery.startedAt
-              ? { startedAt: campaign.discovery.startedAt.toISOString() }
-              : {}),
-            ...(campaign.discovery.completedAt
-              ? { completedAt: campaign.discovery.completedAt.toISOString() }
-              : {}),
+            ...(campaign.discovery.startedAt ? { startedAt: campaign.discovery.startedAt.toISOString() } : {}),
+            ...(campaign.discovery.completedAt ? { completedAt: campaign.discovery.completedAt.toISOString() } : {}),
             ...(campaign.discovery.errorCode ? { errorCode: campaign.discovery.errorCode } : {}),
           },
         }
@@ -44,12 +40,8 @@ function toDto(campaign: InstanceType<typeof CampaignModel>): CampaignDto {
     sequence: {
       approvalStatus: campaign.sequence.approvalStatus,
       draftVersion: campaign.sequence.draftVersion,
-      ...(campaign.sequence.approvedVersion !== undefined
-        ? { approvedVersion: campaign.sequence.approvedVersion }
-        : {}),
-      ...(campaign.sequence.approvedAt
-        ? { approvedAt: campaign.sequence.approvedAt.toISOString() }
-        : {}),
+      ...(campaign.sequence.approvedVersion !== undefined ? { approvedVersion: campaign.sequence.approvedVersion } : {}),
+      ...(campaign.sequence.approvedAt ? { approvedAt: campaign.sequence.approvedAt.toISOString() } : {}),
       steps: campaign.sequence.steps.map((step) => ({
         order: step.order,
         delayDays: step.delayDays,
@@ -61,6 +53,15 @@ function toDto(campaign: InstanceType<typeof CampaignModel>): CampaignDto {
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
   };
+}
+
+function invalidateProviderPreparation(campaign: InstanceType<typeof CampaignModel>): void {
+  campaign.sequence.approvedProspectIds = [];
+  campaign.sequence.providerSequenceId = undefined;
+  campaign.sequence.providerState = 'NOT_PREPARED';
+  campaign.sequence.providerConfiguredVersion = undefined;
+  campaign.sequence.providerStartedAt = undefined;
+  campaign.sequence.providerLastErrorCode = undefined;
 }
 
 export function createCampaignRouter(config: AppConfig): Router {
@@ -134,6 +135,9 @@ export function createCampaignRouter(config: AppConfig): Router {
       if (!config.nvidiaApiKey || !config.nvidiaModel) throw new Error('NVIDIA_NOT_CONFIGURED');
       const campaign = await CampaignModel.findOne({ _id: req.params.campaignId, workspaceId });
       if (!campaign) return void res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Campaign not found.' } });
+      if (campaign.sequence.providerState === 'STARTED') {
+        return void res.status(409).json({ error: { code: 'SEQUENCE_ALREADY_STARTED', message: 'A started campaign sequence cannot be regenerated.' } });
+      }
       const vertical = await VerticalProfileModel.findById(campaign.verticalProfileId);
       if (!vertical) return void res.status(409).json({ error: { code: 'VERTICAL_PROFILE_REQUIRED', message: 'Vertical profile missing.' } });
       const eligible = await CampaignProspectModel.countDocuments({ campaignId: campaign._id, releaseStatus: 'READY' });
@@ -142,10 +146,12 @@ export function createCampaignRouter(config: AppConfig): Router {
         campaign: { name: campaign.name, sourcePostUrl: campaign.source.postUrl, eligibleProspects: eligible },
         verticalProfile: { offer: vertical.offer, outreachGoal: vertical.outreachGoal, outreachTone: vertical.outreachTone },
       });
+      const hadApproval = campaign.sequence.approvalStatus === 'APPROVED';
       campaign.sequence.steps = draft.steps;
       campaign.sequence.draftVersion += 1;
-      campaign.sequence.approvalStatus = 'DRAFT';
+      campaign.sequence.approvalStatus = hadApproval ? 'REAPPROVAL_REQUIRED' : 'DRAFT';
       campaign.status = 'READY_FOR_REVIEW';
+      invalidateProviderPreparation(campaign);
       await campaign.save();
       res.status(200).json({ campaign: toDto(campaign) } satisfies CampaignResponse);
     } catch (error) { next(error); }
@@ -157,11 +163,15 @@ export function createCampaignRouter(config: AppConfig): Router {
       const input = updateSequenceRequestSchema.parse(req.body);
       const campaign = await CampaignModel.findOne({ _id: req.params.campaignId, workspaceId });
       if (!campaign) return void res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Campaign not found.' } });
+      if (campaign.sequence.providerState === 'STARTED') {
+        return void res.status(409).json({ error: { code: 'SEQUENCE_ALREADY_STARTED', message: 'A started campaign sequence cannot be edited.' } });
+      }
       const wasApproved = campaign.sequence.approvalStatus === 'APPROVED';
       campaign.sequence.steps = input.steps;
       campaign.sequence.draftVersion += 1;
       campaign.sequence.approvalStatus = wasApproved ? 'REAPPROVAL_REQUIRED' : 'DRAFT';
-      if (wasApproved) campaign.status = 'READY_FOR_REVIEW';
+      campaign.status = 'READY_FOR_REVIEW';
+      invalidateProviderPreparation(campaign);
       await campaign.save();
       res.status(200).json({ campaign: toDto(campaign) } satisfies CampaignResponse);
     } catch (error) { next(error); }
@@ -176,18 +186,31 @@ export function createCampaignRouter(config: AppConfig): Router {
       if (campaign.sequence.steps.length < 2 || campaign.sequence.steps.length > 3) {
         return void res.status(409).json({ error: { code: 'SEQUENCE_REQUIRED', message: 'Generate and review a sequence first.' } });
       }
-      const ready = await CampaignProspectModel.countDocuments({ campaignId: campaign._id, releaseStatus: 'READY' });
-      if (ready === 0) return void res.status(409).json({ error: { code: 'NO_ELIGIBLE_PROSPECTS', message: 'No eligible prospects are ready for release.' } });
+      const readyProspects = await CampaignProspectModel.find({ campaignId: campaign._id, releaseStatus: 'READY' }).select('prospectId');
+      if (readyProspects.length === 0) {
+        return void res.status(409).json({ error: { code: 'NO_ELIGIBLE_PROSPECTS', message: 'No eligible prospects are ready for release.' } });
+      }
+
       campaign.sequence.approvalStatus = 'APPROVED';
       campaign.sequence.approvedVersion = campaign.sequence.draftVersion;
       campaign.sequence.approvedAt = new Date();
+      campaign.sequence.approvedProspectIds = readyProspects.map((prospect) => prospect.prospectId);
+      campaign.sequence.providerState = 'NOT_PREPARED';
+      campaign.sequence.providerSequenceId = undefined;
+      campaign.sequence.providerConfiguredVersion = undefined;
+      campaign.sequence.providerStartedAt = undefined;
+      campaign.sequence.providerLastErrorCode = undefined;
       campaign.status = 'APPROVED';
       await campaign.save();
-      const prospects = await CampaignProspectModel.find({ campaignId: campaign._id, releaseStatus: 'READY' });
-      await JobModel.insertMany(prospects.map((prospect) => ({
+
+      await JobModel.insertMany(readyProspects.map((prospect) => ({
         workspaceId,
         type: 'RELEASE_CAMPAIGN_PROSPECT',
-        payload: { campaignId: campaign._id.toString(), prospectId: prospect.prospectId.toString(), approvedVersion: campaign.sequence.approvedVersion },
+        payload: {
+          campaignId: campaign._id.toString(),
+          prospectId: prospect.prospectId.toString(),
+          approvedVersion: campaign.sequence.approvedVersion,
+        },
       })));
       res.status(200).json({ campaign: toDto(campaign) } satisfies CampaignResponse);
     } catch (error) { next(error); }
