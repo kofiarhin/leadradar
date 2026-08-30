@@ -4,6 +4,7 @@ import { loadConfig } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './db/connection';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
+import { processQualificationJob } from './modules/qualification/qualification.processor';
 
 const config = loadConfig();
 const workerId = `worker-${randomUUID()}`;
@@ -16,6 +17,8 @@ async function processOne(): Promise<boolean> {
   try {
     if (job.type === 'INGEST_DISCOVERY_RESULTS') {
       await processDiscoveryJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'QUALIFY_PROSPECT') {
+      await processQualificationJob(job.payload as Record<string, unknown>, config);
     } else {
       throw new Error(`UNSUPPORTED_JOB_TYPE:${job.type}`);
     }
