@@ -1,6 +1,6 @@
 ---
 ticket_schema: 1
-status: ready
+status: verifying
 ---
 
 # 006 — Sequence drafting, approval, and outreach release
