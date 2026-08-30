@@ -138,10 +138,15 @@ export class HunterClient {
     );
     if (!response.ok) throw new Error(`HUNTER_RECIPIENT_${response.status}`);
     const payload = (await response.json()) as {
-      data?: { recipients?: Array<{ email?: string; lead_id?: number | string }>; skipped_recipients?: unknown[] };
+      data?: { skipped_recipients?: Array<{ email?: string; reason?: string }> };
     };
-    const recipient = payload.data?.recipients?.find((value) => value.email?.toLowerCase() === email.toLowerCase());
-    return String(recipient?.lead_id ?? email);
+    const skipped = payload.data?.skipped_recipients?.find(
+      (value) => value.email?.toLowerCase() === email.toLowerCase(),
+    );
+    if (skipped && skipped.reason !== 'duplicate') {
+      throw new Error(`HUNTER_RECIPIENT_SKIPPED:${skipped.reason ?? 'unknown'}`);
+    }
+    return email;
   }
 
   async cancelScheduledEmails(sequenceId: string, email: string): Promise<void> {
@@ -196,18 +201,34 @@ export class HunterClient {
     };
   }
 
+  async getPendingMessageCount(sequenceId: string): Promise<number> {
+    const response = await this.fetchImpl(
+      this.url('/messages', { status: 'pending', sequence_id: sequenceId, limit: '1' }),
+    );
+    if (!response.ok) throw new Error(`HUNTER_MESSAGES_${response.status}`);
+    const payload = (await response.json()) as { data?: { messages?: unknown[] } };
+    return payload.data?.messages?.length ?? 0;
+  }
+
   async sendManualReply(input: {
+    emailAccountId: string;
     to: string;
-    subject?: string;
+    subject: string;
     body: string;
+    idempotencyKey: string;
   }): Promise<string> {
     const response = await this.fetchImpl(this.url('/messages'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': input.idempotencyKey,
+      },
       body: JSON.stringify({
+        email_account_id: input.emailAccountId,
         to: input.to,
-        ...(input.subject ? { subject: input.subject } : {}),
+        subject: input.subject,
         body: input.body,
+        message_format: 'text',
       }),
     });
     if (!response.ok) throw new Error(`HUNTER_MANUAL_REPLY_${response.status}`);
