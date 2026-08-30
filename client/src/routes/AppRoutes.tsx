@@ -4,8 +4,10 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { RequireSession } from '../features/auth/RequireSession';
 import { CampaignDetailPage } from '../pages/CampaignDetailPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { LeadsPage } from '../pages/LeadsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NewCampaignPage } from '../pages/NewCampaignPage';
+import { OpportunitiesPage } from '../pages/OpportunitiesPage';
 
 function protectedPage(element: ReactElement): ReactElement {
   return <RequireSession>{element}</RequireSession>;
@@ -18,6 +20,8 @@ export function AppRoutes(): ReactElement {
       <Route path="/" element={protectedPage(<DashboardPage />)} />
       <Route path="/campaigns/new" element={protectedPage(<NewCampaignPage />)} />
       <Route path="/campaigns/:campaignId" element={protectedPage(<CampaignDetailPage />)} />
+      <Route path="/leads" element={protectedPage(<LeadsPage />)} />
+      <Route path="/opportunities" element={protectedPage(<OpportunitiesPage />)} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
