@@ -6,6 +6,7 @@ import { Link, useParams } from 'react-router-dom';
 import {
   approveCampaign,
   fetchCampaign,
+  fetchCampaignProspects,
   generateCampaignSequence,
   updateCampaignSequence,
 } from '../api/campaigns';
@@ -19,7 +20,13 @@ export function CampaignDetailPage(): ReactElement {
     enabled: Boolean(campaignId),
     retry: false,
     refetchInterval: (query) =>
-      ['DISCOVERING', 'PROCESSING'].includes(query.state.data?.status ?? '') ? 5_000 : false,
+      ['DISCOVERING', 'PROCESSING', 'SENDING'].includes(query.state.data?.status ?? '') ? 5_000 : false,
+  });
+  const prospects = useQuery({
+    queryKey: ['campaign-prospects', campaignId],
+    queryFn: () => fetchCampaignProspects(campaignId),
+    enabled: Boolean(campaignId),
+    retry: false,
   });
   const [steps, setSteps] = useState<Array<{ order: number; delayDays: number; subject?: string; body: string }>>([]);
 
@@ -28,7 +35,10 @@ export function CampaignDetailPage(): ReactElement {
   }, [campaign.data]);
 
   const refresh = async (): Promise<void> => {
-    await queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['campaign', campaignId] }),
+      queryClient.invalidateQueries({ queryKey: ['campaign-prospects', campaignId] }),
+    ]);
   };
   const generate = useMutation({ mutationFn: () => generateCampaignSequence(campaignId), onSuccess: refresh });
   const save = useMutation({ mutationFn: () => updateCampaignSequence(campaignId, { steps }), onSuccess: refresh });
@@ -36,20 +46,17 @@ export function CampaignDetailPage(): ReactElement {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm text-slate-600">Campaign</p>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {campaign.data?.name ?? 'Loading campaign…'}
-            </h1>
+            <h1 className="text-2xl font-semibold text-slate-900">{campaign.data?.name ?? 'Loading campaign…'}</h1>
           </div>
           <Link to="/" className="text-sm font-medium text-slate-700 underline">Dashboard</Link>
         </div>
 
-        {campaign.isError ? (
-          <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">Campaign could not be loaded.</p>
-        ) : campaign.data ? (
+        {campaign.isError ? <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">Campaign could not be loaded.</p> : null}
+        {campaign.data ? (
           <>
             <section className="grid gap-4 rounded-lg border border-slate-200 bg-white p-6 md:grid-cols-4">
               <div><p className="text-xs uppercase tracking-wide text-slate-500">Status</p><p className="mt-1 font-medium text-slate-900">{campaign.data.status}</p></div>
@@ -63,6 +70,21 @@ export function CampaignDetailPage(): ReactElement {
               <a href={campaign.data.source.postUrl} target="_blank" rel="noreferrer" className="mt-2 block break-all text-sm text-blue-700 underline">{campaign.data.source.postUrl}</a>
               {campaign.data.discovery?.errorCode ? <p role="alert" className="mt-4 text-sm text-red-700">Discovery failed: {campaign.data.discovery.errorCode}</p> : null}
               {['DISCOVERING', 'PROCESSING'].includes(campaign.data.status) ? <p role="status" className="mt-4 text-sm text-slate-600">LeadRadar is processing public comments in the background.</p> : null}
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div><h2 className="font-semibold text-slate-900">Prospect batch</h2><p className="text-sm text-slate-600">Qualification, contact, policy and release state for this campaign.</p></div>
+                <Link to={`/leads?campaignId=${campaignId}`} className="text-sm text-slate-700 underline">Open in Leads</Link>
+              </div>
+              {prospects.isPending ? <p role="status" className="mt-4 text-sm text-slate-600">Loading prospects…</p> : prospects.isError ? <p role="alert" className="mt-4 text-sm text-red-700">Campaign prospects could not be loaded.</p> : prospects.data.length === 0 ? <p className="mt-4 text-sm text-slate-600">No prospects processed yet.</p> : (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead><tr className="border-b border-slate-200 text-xs uppercase text-slate-500"><th className="px-2 py-2">Prospect</th><th className="px-2 py-2">Qualification</th><th className="px-2 py-2">Contact</th><th className="px-2 py-2">Policy</th><th className="px-2 py-2">Release</th></tr></thead>
+                    <tbody>{prospects.data.map((row) => <tr key={row.campaignProspect.prospectId} className="border-b border-slate-100 align-top"><td className="px-2 py-3"><Link to={`/leads/${row.campaignProspect.prospectId}`} className="font-medium text-slate-900 underline">{row.prospect?.identity.displayName ?? 'Prospect'}</Link><p className="text-xs text-slate-500">{row.prospect?.identity.role ?? 'Role unknown'} · {row.prospect?.identity.company ?? 'Company unknown'}</p>{row.primarySignal?.content ? <p className="mt-1 max-w-sm text-xs text-slate-600">{row.primarySignal.content}</p> : null}</td><td className="px-2 py-3"><p>{row.campaignProspect.qualificationDecision}</p>{row.prospect?.qualification.reason ? <p className="max-w-xs text-xs text-slate-500">{row.prospect.qualification.reason}</p> : null}</td><td className="px-2 py-3"><p>{row.prospect?.contact.status ?? 'UNKNOWN'}</p><p className="text-xs text-slate-500">{row.prospect?.contact.businessEmail ?? ''}</p></td><td className="px-2 py-3">{row.campaignProspect.outreachPolicyDecision ?? 'PENDING'}</td><td className="px-2 py-3"><span className={['BLOCKED', 'REVIEW'].includes(row.campaignProspect.releaseStatus) ? 'font-medium text-red-700' : ''}>{row.campaignProspect.releaseStatus}</span></td></tr>)}</tbody>
+                  </table>
+                </div>
+              )}
             </section>
 
             <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
@@ -85,9 +107,7 @@ export function CampaignDetailPage(): ReactElement {
               {(generate.isError || save.isError || approve.isError) ? <p role="alert" className="text-sm text-red-700">The sequence action could not be completed.</p> : null}
             </section>
           </>
-        ) : (
-          <p role="status" className="text-sm text-slate-600">Loading…</p>
-        )}
+        ) : !campaign.isError ? <p role="status" className="text-sm text-slate-600">Loading…</p> : null}
       </div>
     </main>
   );
