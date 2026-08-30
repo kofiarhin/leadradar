@@ -1,6 +1,6 @@
 ---
 ticket_schema: 1
-status: ready
+status: verifying
 ---
 
 # 005 — Enrichment and deterministic contact eligibility
