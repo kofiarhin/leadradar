@@ -3,8 +3,9 @@ import { HunterClient } from '../../providers/hunter/hunter.client';
 import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { enqueueJob } from '../jobs/job.service';
+import { OutreachPolicyEvaluationModel } from '../outreach-policy/outreach-policy.model';
+import { evaluateOutreachPolicy, OUTREACH_POLICY_VERSION } from '../outreach-policy/outreach-policy.service';
 import { ProspectModel } from '../prospects/prospect.model';
-import { evaluateOutreachPolicy } from '../outreach-policy/outreach-policy.service';
 
 async function ensureProviderSequence(
   campaignId: string,
@@ -165,15 +166,28 @@ export async function processReleaseJob(
     countryCode: prospect.identity.countryCode,
     companyType: prospect.identity.companyType,
   });
+  await OutreachPolicyEvaluationModel.create({
+    workspaceId: campaign.workspaceId,
+    campaignId: campaign._id,
+    prospectId: prospect._id,
+    decision: policy.decision,
+    policyVersion: `${OUTREACH_POLICY_VERSION}:release-recheck`,
+    reasonCodes: policy.reasonCodes,
+    evaluatedAt: new Date(),
+  });
   if (policy.decision !== 'ALLOWED') {
-    join.set({ releaseStatus: policy.decision === 'REVIEW' ? 'REVIEW' : 'BLOCKED' });
+    join.set({
+      outreachPolicyDecision: policy.decision,
+      suppressionDecision: policy.decision === 'BLOCKED' && policy.reasonCodes.includes('SUPPRESSED') ? 'BLOCKED' : join.suppressionDecision,
+      releaseStatus: policy.decision === 'REVIEW' ? 'REVIEW' : 'BLOCKED',
+    });
     prospect.set({ 'outreach.status': policy.decision === 'BLOCKED' ? 'BLOCKED' : 'NOT_ELIGIBLE' });
     await Promise.all([join.save(), prospect.save()]);
     return;
   }
 
   if (config.outboundMode !== 'enabled') {
-    join.set({ releaseStatus: 'READY' });
+    join.set({ outreachPolicyDecision: 'ALLOWED', releaseStatus: 'READY' });
     prospect.set({ 'outreach.status': 'ELIGIBLE' });
     await Promise.all([join.save(), prospect.save()]);
     return;
@@ -182,15 +196,15 @@ export async function processReleaseJob(
   if (!config.hunterApiKey) throw new Error('HUNTER_NOT_CONFIGURED');
   const hunter = new HunterClient({ apiKey: config.hunterApiKey });
   const sequenceId = await ensureProviderSequence(campaignId, approvedVersion, hunter);
-  const recipientId = await hunter.addSequenceRecipient(sequenceId, prospect.contact.normalizedEmail);
+  await hunter.addSequenceRecipient(sequenceId, prospect.contact.normalizedEmail);
 
-  join.set({ releaseStatus: 'RELEASED' });
+  join.set({ outreachPolicyDecision: 'ALLOWED', releaseStatus: 'RELEASED' });
   prospect.set({
     outreach: {
       ...prospect.outreach,
       status: 'QUEUED',
       provider: 'HUNTER',
-      providerLeadId: recipientId,
+      providerLeadId: undefined,
       providerSequenceId: sequenceId,
       activeCampaignId: campaign._id,
     },
