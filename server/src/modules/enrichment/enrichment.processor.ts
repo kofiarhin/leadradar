@@ -3,11 +3,6 @@ import { HunterClient } from '../../providers/hunter/hunter.client';
 import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { enqueueJob } from '../jobs/job.service';
-import {
-  evaluateOutreachPolicy,
-  OUTREACH_POLICY_VERSION,
-} from '../outreach-policy/outreach-policy.service';
-import { OutreachPolicyEvaluationModel } from '../outreach-policy/outreach-policy.model';
 import { ProspectModel } from '../prospects/prospect.model';
 
 function splitDisplayName(displayName: string): { firstName?: string; lastName?: string } {
@@ -101,39 +96,9 @@ export async function processEnrichmentJob(
   });
   await prospect.save();
 
-  const policy = await evaluateOutreachPolicy({
+  await enqueueJob({
     workspaceId: campaign.workspaceId,
-    prospectId: prospect._id,
-    normalizedEmail,
-    countryCode: prospect.identity.countryCode,
-    companyType: prospect.identity.companyType,
+    type: 'EVALUATE_OUTREACH_POLICY',
+    payload: { campaignId, prospectId },
   });
-
-  await OutreachPolicyEvaluationModel.create({
-    workspaceId: campaign.workspaceId,
-    campaignId: campaign._id,
-    prospectId: prospect._id,
-    decision: policy.decision,
-    policyVersion: OUTREACH_POLICY_VERSION,
-    reasonCodes: policy.reasonCodes,
-    evaluatedAt: new Date(),
-  });
-
-  join.set({
-    outreachPolicyDecision: policy.decision,
-    suppressionDecision: policy.decision === 'BLOCKED' && policy.reasonCodes.includes('SUPPRESSED') ? 'BLOCKED' : 'CLEAR',
-    releaseStatus: policy.decision === 'ALLOWED' ? 'READY' : policy.decision === 'REVIEW' ? 'REVIEW' : 'BLOCKED',
-  });
-  await join.save();
-
-  prospect.set({ 'outreach.status': policy.decision === 'ALLOWED' ? 'ELIGIBLE' : policy.decision === 'BLOCKED' ? 'BLOCKED' : 'NOT_ELIGIBLE' });
-  await prospect.save();
-
-  if (policy.decision === 'ALLOWED') {
-    await enqueueJob({
-      workspaceId: campaign.workspaceId,
-      type: 'RECOMPUTE_CAMPAIGN_METRICS',
-      payload: { campaignId },
-    });
-  }
 }
