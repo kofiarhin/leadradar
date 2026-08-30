@@ -13,6 +13,7 @@ import { requestId } from './middleware/request-id';
 import { requireAuth } from './middleware/require-auth';
 import { createSessionMiddleware } from './middleware/session';
 import { authRouter } from './modules/auth/auth.routes';
+import { createCampaignProspectRouter } from './modules/campaigns/campaign-prospect.routes';
 import { createCampaignRouter } from './modules/campaigns/campaign.routes';
 import { createHunterWebhookRouter } from './modules/integrations/hunter-webhook.routes';
 import { createOpportunityRouter } from './modules/opportunities/opportunity.routes';
@@ -53,6 +54,7 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   protectedRouter.use(requireAuth);
   protectedRouter.use('/workspace', workspaceRouter);
   protectedRouter.use('/vertical-profile', createVerticalProfileRouter(config));
+  protectedRouter.use('/campaigns', createCampaignProspectRouter());
   protectedRouter.use('/campaigns', createCampaignRouter(config));
   protectedRouter.use('/leads', createProspectRouter(config));
   protectedRouter.use('/opportunities', createOpportunityRouter(config));
