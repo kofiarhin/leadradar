@@ -8,6 +8,7 @@ import { LeadsPage } from '../pages/LeadsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { NewCampaignPage } from '../pages/NewCampaignPage';
 import { OpportunitiesPage } from '../pages/OpportunitiesPage';
+import { ProspectDetailPage } from '../pages/ProspectDetailPage';
 
 function protectedPage(element: ReactElement): ReactElement {
   return <RequireSession>{element}</RequireSession>;
@@ -21,6 +22,7 @@ export function AppRoutes(): ReactElement {
       <Route path="/campaigns/new" element={protectedPage(<NewCampaignPage />)} />
       <Route path="/campaigns/:campaignId" element={protectedPage(<CampaignDetailPage />)} />
       <Route path="/leads" element={protectedPage(<LeadsPage />)} />
+      <Route path="/leads/:prospectId" element={protectedPage(<ProspectDetailPage />)} />
       <Route path="/opportunities" element={protectedPage(<OpportunitiesPage />)} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
