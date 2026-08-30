@@ -48,7 +48,7 @@ export async function completeJob(job: InstanceType<typeof JobModel>): Promise<v
   await job.save();
 }
 
-export async function failJob(job: InstanceType<typeof JobModel>, error: unknown): Promise<void> {
+export async function failJob(job: InstanceType<typeof JobModel>, error: unknown): Promise<boolean> {
   const message = error instanceof Error ? error.message : 'Unknown job failure';
   const exhausted = job.attempts >= job.maxAttempts;
   job.set({
@@ -60,4 +60,5 @@ export async function failJob(job: InstanceType<typeof JobModel>, error: unknown
     lockedBy: undefined,
   });
   await job.save();
+  return exhausted;
 }
