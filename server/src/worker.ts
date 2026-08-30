@@ -56,7 +56,14 @@ async function processOne(): Promise<boolean> {
   } catch (error) {
     const exhausted = await failJob(job, error);
     if (exhausted) {
-      await surfaceDeadJob(job, config);
+      try {
+        await surfaceDeadJob(job, config);
+      } catch (surfaceError) {
+        console.error(
+          `Failed to surface dead job ${job._id.toString()}.`,
+          surfaceError instanceof Error ? surfaceError.message : surfaceError,
+        );
+      }
     }
   }
   return true;
