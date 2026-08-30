@@ -39,7 +39,7 @@ async function processOne(): Promise<boolean> {
     } else if (job.type === 'RECOMPUTE_CAMPAIGN_METRICS') {
       const campaignId = String((job.payload as Record<string, unknown>).campaignId ?? '');
       if (!campaignId) throw new Error('INVALID_METRICS_JOB');
-      await recomputeCampaignMetrics(campaignId);
+      await recomputeCampaignMetrics(campaignId, config);
     } else if (job.type === 'APPLY_RETENTION') {
       const workspaceId = String((job.payload as Record<string, unknown>).workspaceId ?? '');
       if (!workspaceId) throw new Error('INVALID_RETENTION_JOB');
