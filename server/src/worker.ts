@@ -5,6 +5,7 @@ import { connectToDatabase, disconnectFromDatabase } from './db/connection';
 import { processEnrichmentJob } from './modules/enrichment/enrichment.processor';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
+import { processReleaseJob } from './modules/outreach/release.processor';
 import { processQualificationJob } from './modules/qualification/qualification.processor';
 
 const config = loadConfig();
@@ -22,6 +23,8 @@ async function processOne(): Promise<boolean> {
       await processQualificationJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'ENRICH_PROSPECT') {
       await processEnrichmentJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'RELEASE_CAMPAIGN_PROSPECT') {
+      await processReleaseJob(job.payload as Record<string, unknown>, config);
     } else {
       throw new Error(`UNSUPPORTED_JOB_TYPE:${job.type}`);
     }
