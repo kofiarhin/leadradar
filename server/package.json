@@ -6,7 +6,9 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:worker": "tsx watch src/worker.ts",
     "start": "node dist/server.js",
+    "worker": "node dist/worker.js",
     "seed": "tsx src/seed.cli.ts",
     "prebuild": "npm run build --workspace @leadradar/shared",
     "build": "tsc -p tsconfig.json",
