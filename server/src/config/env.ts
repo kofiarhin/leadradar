@@ -23,6 +23,7 @@ const envSchema = z.object({
   NVIDIA_API_KEY: z.string().min(1).optional(),
   NVIDIA_MODEL: z.string().min(1).optional(),
   HUNTER_API_KEY: z.string().min(1).optional(),
+  HUNTER_WEBHOOK_SECRET: z.string().min(24).optional(),
   OUTBOUND_MODE: z.enum(['disabled', 'enabled']).default('disabled'),
 });
 
@@ -40,6 +41,7 @@ export interface AppConfig {
   nvidiaApiKey?: string;
   nvidiaModel?: string;
   hunterApiKey?: string;
+  hunterWebhookSecret?: string;
   outboundMode: 'disabled' | 'enabled';
 }
 
@@ -74,6 +76,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     ...(parsed.NVIDIA_API_KEY ? { nvidiaApiKey: parsed.NVIDIA_API_KEY } : {}),
     ...(parsed.NVIDIA_MODEL ? { nvidiaModel: parsed.NVIDIA_MODEL } : {}),
     ...(parsed.HUNTER_API_KEY ? { hunterApiKey: parsed.HUNTER_API_KEY } : {}),
+    ...(parsed.HUNTER_WEBHOOK_SECRET ? { hunterWebhookSecret: parsed.HUNTER_WEBHOOK_SECRET } : {}),
     outboundMode: parsed.OUTBOUND_MODE,
   };
 }
