@@ -54,7 +54,7 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   protectedRouter.use('/workspace', workspaceRouter);
   protectedRouter.use('/vertical-profile', createVerticalProfileRouter(config));
   protectedRouter.use('/campaigns', createCampaignRouter(config));
-  protectedRouter.use('/leads', createProspectRouter());
+  protectedRouter.use('/leads', createProspectRouter(config));
   protectedRouter.use('/opportunities', createOpportunityRouter(config));
   app.use(API_BASE_PATH, protectedRouter);
 
