@@ -10,6 +10,21 @@ export interface HunterVerificationResult {
   score?: number;
 }
 
+export interface HunterSequenceStepInput {
+  order: number;
+  delayDays: number;
+  subject?: string;
+  body: string;
+}
+
+export interface HunterSequenceState {
+  id: string;
+  status?: string;
+  started?: boolean;
+  paused?: boolean;
+  archived?: boolean;
+}
+
 export interface HunterClientOptions {
   apiKey: string;
   baseUrl?: string;
@@ -25,7 +40,7 @@ export class HunterClient {
     this.baseUrl = options.baseUrl ?? 'https://api.hunter.io/v2';
   }
 
-  private url(path: string, params: Record<string, string | undefined>): string {
+  private url(path: string, params: Record<string, string | undefined> = {}): string {
     const url = new URL(`${this.baseUrl}${path}`);
     for (const [key, value] of Object.entries(params)) {
       if (value) url.searchParams.set(key, value);
@@ -73,10 +88,13 @@ export class HunterClient {
     };
   }
 
-  async createSequence(name: string): Promise<string> {
-    const response = await this.fetchImpl(this.url('/sequences', {}), {
+  async createSequence(name: string, idempotencyKey?: string): Promise<string> {
+    const response = await this.fetchImpl(this.url('/sequences'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+      },
       body: JSON.stringify({ name }),
     });
     if (!response.ok) throw new Error(`HUNTER_SEQUENCE_CREATE_${response.status}`);
@@ -85,23 +103,97 @@ export class HunterClient {
     return String(payload.data.id);
   }
 
-  async addSequenceRecipient(sequenceId: string, email: string): Promise<string> {
-    const response = await this.fetchImpl(this.url(`/sequences/${encodeURIComponent(sequenceId)}/recipients`, {}), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (!response.ok) throw new Error(`HUNTER_RECIPIENT_${response.status}`);
-    const payload = (await response.json()) as { data?: { id?: number | string } };
-    return String(payload.data?.id ?? email);
+  async addSequenceStep(sequenceId: string, step: HunterSequenceStepInput): Promise<void> {
+    const response = await this.fetchImpl(
+      this.url(`/sequences/${encodeURIComponent(sequenceId)}/follow-ups`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          step: step.order - 1,
+          wait_days: step.delayDays,
+          subject: step.subject ?? '',
+          body: step.body,
+          message_format: 'text',
+        }),
+      },
+    );
+    if (!response.ok) throw new Error(`HUNTER_SEQUENCE_STEP_${response.status}`);
   }
 
-  async cancelRecipient(sequenceId: string, recipientId: string): Promise<void> {
+  async configureSequence(sequenceId: string, steps: HunterSequenceStepInput[]): Promise<void> {
+    for (const step of [...steps].sort((a, b) => a.order - b.order)) {
+      await this.addSequenceStep(sequenceId, step);
+    }
+  }
+
+  async addSequenceRecipient(sequenceId: string, email: string): Promise<string> {
     const response = await this.fetchImpl(
-      this.url(`/sequences/${encodeURIComponent(sequenceId)}/recipients/${encodeURIComponent(recipientId)}/cancel`, {}),
-      { method: 'POST' },
+      this.url(`/campaigns/${encodeURIComponent(sequenceId)}/recipients`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: [email] }),
+      },
+    );
+    if (!response.ok) throw new Error(`HUNTER_RECIPIENT_${response.status}`);
+    const payload = (await response.json()) as {
+      data?: { recipients?: Array<{ email?: string; lead_id?: number | string }>; skipped_recipients?: unknown[] };
+    };
+    const recipient = payload.data?.recipients?.find((value) => value.email?.toLowerCase() === email.toLowerCase());
+    return String(recipient?.lead_id ?? email);
+  }
+
+  async cancelScheduledEmails(sequenceId: string, email: string): Promise<void> {
+    const response = await this.fetchImpl(
+      this.url(`/campaigns/${encodeURIComponent(sequenceId)}/recipients`),
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emails: [email] }),
+      },
     );
     if (!response.ok) throw new Error(`HUNTER_CANCEL_${response.status}`);
+  }
+
+  async startSequence(sequenceId: string): Promise<void> {
+    const response = await this.fetchImpl(
+      this.url(`/campaigns/${encodeURIComponent(sequenceId)}/start`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+    );
+    if (!response.ok) throw new Error(`HUNTER_SEQUENCE_START_${response.status}`);
+  }
+
+  async pauseSequence(sequenceId: string): Promise<void> {
+    const response = await this.fetchImpl(
+      this.url(`/sequences/${encodeURIComponent(sequenceId)}/pause`),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+    );
+    if (!response.ok) throw new Error(`HUNTER_SEQUENCE_PAUSE_${response.status}`);
+  }
+
+  async getSequence(sequenceId: string): Promise<HunterSequenceState> {
+    const response = await this.fetchImpl(this.url(`/sequences/${encodeURIComponent(sequenceId)}`));
+    if (!response.ok) throw new Error(`HUNTER_SEQUENCE_GET_${response.status}`);
+    const payload = (await response.json()) as {
+      data?: { id?: string | number; status?: string; started?: boolean; paused?: boolean; archived?: boolean };
+    };
+    if (payload.data?.id === undefined) throw new Error('HUNTER_INVALID_SEQUENCE_GET_RESPONSE');
+    return {
+      id: String(payload.data.id),
+      ...(typeof payload.data.status === 'string' ? { status: payload.data.status } : {}),
+      ...(typeof payload.data.started === 'boolean' ? { started: payload.data.started } : {}),
+      ...(typeof payload.data.paused === 'boolean' ? { paused: payload.data.paused } : {}),
+      ...(typeof payload.data.archived === 'boolean' ? { archived: payload.data.archived } : {}),
+    };
   }
 
   async sendManualReply(input: {
@@ -109,7 +201,7 @@ export class HunterClient {
     subject?: string;
     body: string;
   }): Promise<string> {
-    const response = await this.fetchImpl(this.url('/messages', {}), {
+    const response = await this.fetchImpl(this.url('/messages'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
