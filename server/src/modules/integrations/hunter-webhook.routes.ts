@@ -12,6 +12,10 @@ function secretsMatch(expected: string, actual: string): boolean {
   return expectedBuffer.length === actualBuffer.length && timingSafeEqual(expectedBuffer, actualBuffer);
 }
 
+function isDuplicateKey(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 11000);
+}
+
 export function createHunterWebhookRouter(config: AppConfig): Router {
   const router = Router();
   router.post('/hunter', express.json({ limit: '250kb' }), async (req: Request, res: Response, next: NextFunction) => {
@@ -58,15 +62,26 @@ export function createHunterWebhookRouter(config: AppConfig): Router {
         res.status(202).json({ accepted: true, duplicate: true });
         return;
       }
-      const event = await IntegrationEventModel.create({
-        provider: 'HUNTER',
-        providerEventId,
-        eventType,
-        payloadHash,
-        status: 'RECEIVED',
-        attempts: 0,
-        receivedAt: new Date(),
-      });
+
+      let event;
+      try {
+        event = await IntegrationEventModel.create({
+          provider: 'HUNTER',
+          providerEventId,
+          eventType,
+          payloadHash,
+          status: 'RECEIVED',
+          attempts: 0,
+          receivedAt: new Date(),
+        });
+      } catch (error) {
+        if (isDuplicateKey(error)) {
+          res.status(202).json({ accepted: true, duplicate: true });
+          return;
+        }
+        throw error;
+      }
+
       await enqueueJob({
         workspaceId: prospect.workspaceId,
         type: 'PROCESS_REPLY',
