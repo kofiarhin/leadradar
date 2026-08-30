@@ -11,6 +11,7 @@ async function ensureProviderSequence(
   campaignId: string,
   approvedVersion: number,
   hunter: HunterClient,
+  emailAccountId: string,
 ): Promise<string> {
   const existing = await CampaignModel.findById(campaignId);
   if (!existing) throw new Error('CAMPAIGN_NOT_FOUND');
@@ -55,6 +56,7 @@ async function ensureProviderSequence(
     const sequenceId = await hunter.createSequence(
       claimed.name,
       `leadradar-${claimed._id.toString()}-v${approvedVersion}`,
+      [emailAccountId],
     );
     await hunter.configureSequence(
       sequenceId,
@@ -193,9 +195,16 @@ export async function processReleaseJob(
     return;
   }
 
-  if (!config.hunterApiKey) throw new Error('HUNTER_NOT_CONFIGURED');
+  if (!config.hunterApiKey || !config.hunterEmailAccountId) {
+    throw new Error('HUNTER_SEQUENCE_SEND_NOT_CONFIGURED');
+  }
   const hunter = new HunterClient({ apiKey: config.hunterApiKey });
-  const sequenceId = await ensureProviderSequence(campaignId, approvedVersion, hunter);
+  const sequenceId = await ensureProviderSequence(
+    campaignId,
+    approvedVersion,
+    hunter,
+    config.hunterEmailAccountId,
+  );
   await hunter.addSequenceRecipient(sequenceId, prospect.contact.normalizedEmail);
 
   join.set({ outreachPolicyDecision: 'ALLOWED', releaseStatus: 'RELEASED' });
