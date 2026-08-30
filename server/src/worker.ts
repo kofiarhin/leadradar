@@ -2,12 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import { loadConfig } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './db/connection';
+import { recomputeCampaignMetrics } from './modules/campaigns/campaign-metrics.processor';
 import { processReplyJob } from './modules/conversations/reply.processor';
 import { processEnrichmentJob } from './modules/enrichment/enrichment.processor';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
 import { processReleaseJob } from './modules/outreach/release.processor';
 import { processQualificationJob } from './modules/qualification/qualification.processor';
+import { applyRetention } from './modules/retention/retention.processor';
 
 const config = loadConfig();
 const workerId = `worker-${randomUUID()}`;
@@ -28,6 +30,12 @@ async function processOne(): Promise<boolean> {
       await processReleaseJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'PROCESS_REPLY') {
       await processReplyJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'RECOMPUTE_CAMPAIGN_METRICS') {
+      const campaignId = String((job.payload as Record<string, unknown>).campaignId ?? '');
+      if (!campaignId) throw new Error('INVALID_METRICS_JOB');
+      await recomputeCampaignMetrics(campaignId);
+    } else if (job.type === 'APPLY_RETENTION') {
+      await applyRetention();
     } else {
       throw new Error(`UNSUPPORTED_JOB_TYPE:${job.type}`);
     }
