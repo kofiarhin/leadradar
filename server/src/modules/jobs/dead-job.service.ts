@@ -4,7 +4,7 @@ import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { IntegrationEventModel } from '../integrations/integration-event.model';
 import { ProspectModel } from '../prospects/prospect.model';
-import type { JobModel } from './job.model';
+import { JobModel } from './job.model';
 import { enqueueJob } from './job.service';
 
 async function maybeStartPreparedSequence(campaignId: string, config: AppConfig): Promise<void> {
