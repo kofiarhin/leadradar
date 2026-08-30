@@ -6,6 +6,7 @@ import { recomputeCampaignMetrics } from './modules/campaigns/campaign-metrics.p
 import { processReplyClassificationJob } from './modules/conversations/classification.processor';
 import { processReplyJob } from './modules/conversations/reply.processor';
 import { processEnrichmentJob } from './modules/enrichment/enrichment.processor';
+import { surfaceDeadJob } from './modules/jobs/dead-job.service';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
 import { processOutreachPolicyJob } from './modules/outreach-policy/outreach-policy.processor';
@@ -53,7 +54,10 @@ async function processOne(): Promise<boolean> {
       await ensureRetentionJobs(nextRetentionRunAt());
     }
   } catch (error) {
-    await failJob(job, error);
+    const exhausted = await failJob(job, error);
+    if (exhausted) {
+      await surfaceDeadJob(job, config);
+    }
   }
   return true;
 }
