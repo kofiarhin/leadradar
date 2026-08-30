@@ -127,7 +127,7 @@ export class HunterClient {
     }
   }
 
-  async addSequenceRecipient(sequenceId: string, email: string): Promise<string> {
+  async addSequenceRecipient(sequenceId: string, email: string): Promise<void> {
     const response = await this.fetchImpl(
       this.url(`/campaigns/${encodeURIComponent(sequenceId)}/recipients`),
       {
@@ -146,7 +146,6 @@ export class HunterClient {
     if (skipped && skipped.reason !== 'duplicate') {
       throw new Error(`HUNTER_RECIPIENT_SKIPPED:${skipped.reason ?? 'unknown'}`);
     }
-    return email;
   }
 
   async cancelScheduledEmails(sequenceId: string, email: string): Promise<void> {
