@@ -9,7 +9,7 @@
 
 - `tickets/001-owner-login.md` — `verifying`; automated owner-auth checks previously passed, browser pass remains outstanding.
 - `tickets/002-vertical-profile.md` — merged to `main`; implementation exists, exact-head CI/browser evidence remains incomplete.
-- `tickets/003-campaign-discovery.md` through `tickets/008-metrics-resilience.md` — implemented on the stacked feature branch chain ending at `feat/008-metrics-resilience`; verification is not yet proven.
+- `tickets/003-campaign-discovery.md` through `tickets/008-metrics-resilience.md` — implementation-complete on the stacked feature branch chain ending at `feat/008-metrics-resilience`; verification is not yet proven.
 
 ## Implemented on stacked branches
 
@@ -27,16 +27,18 @@ The branch chain implements the approved V1 architecture and primary workflow:
 - outbound provider writes disabled by default through `OUTBOUND_MODE=disabled`;
 - Hunter webhook idempotency using `IntegrationEvent`;
 - inbound reply persistence and deterministic outreach pause before NVIDIA classification;
-- reply intent classification, AI draft responses held for human review, and Opportunity records;
+- reply intent classification and AI draft responses;
+- explicit human review/edit/send action for conversational replies, with live send blocked unless outbound mode is separately enabled;
+- durable outbound `MANUAL_REPLY` message persistence only after Hunter reports successful send;
 - manual `READY_TO_BOOK`, `BOOKED`, and follow-up opportunity controls;
 - campaign metric recomputation from authoritative records;
+- dashboard aggregate outcome cards for active campaigns, qualified prospects, verified prospects, replies, opportunities, ready-to-book, and booked calls;
 - rejected-temporary signal retention cleanup;
 - Leads search/filter API and UI, Opportunities Inbox UI, campaign creation/detail/sequence-review UI;
+- focused automated coverage for deterministic outreach-policy decisions, NVIDIA structured-output validation, and the outbound-disabled human-reply boundary;
 - configurable Apify Actor ID, NVIDIA model, Hunter API key, and provider secrets through environment configuration.
 
-## Not implemented / deliberately excluded
-
-Per approved V1 scope:
+## Deliberately excluded by approved V1 scope / execution contract
 
 - production deployment/release;
 - public signup, teams/RBAC, billing;
@@ -44,7 +46,7 @@ Per approved V1 scope:
 - autonomous conversational replies;
 - calendar OAuth or automatic meeting creation;
 - native Gmail/Microsoft OAuth or custom email infrastructure;
-- live outbound execution in the current implementation contract.
+- live outbound execution under the current implementation contract.
 
 ## Verification
 
@@ -65,7 +67,7 @@ For the new stacked V1 implementation ending at `feat/008-metrics-resilience`:
 - live Apify/NVIDIA/Hunter calls — **Not run**; adapters were implemented against revalidated provider contracts without exercising customer credentials.
 - live outbound email — **Not run by design**.
 
-The new V1 work is therefore implemented but remains `verifying`, not `delivered`.
+The new V1 work is therefore implementation-complete but remains `verifying`, not `delivered`.
 
 ## Released
 
