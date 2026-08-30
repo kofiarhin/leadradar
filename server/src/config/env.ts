@@ -23,7 +23,7 @@ const envSchema = z.object({
   NVIDIA_API_KEY: z.string().min(1).optional(),
   NVIDIA_MODEL: z.string().min(1).optional(),
   HUNTER_API_KEY: z.string().min(1).optional(),
-  HUNTER_EMAIL_ACCOUNT_ID: z.string().min(1).optional(),
+  HUNTER_EMAIL_ACCOUNT_ID: z.coerce.number().int().positive().optional(),
   HUNTER_WEBHOOK_SECRET: z.string().min(24).optional(),
   OUTBOUND_MODE: z.enum(['disabled', 'enabled']).default('disabled'),
 });
@@ -42,7 +42,7 @@ export interface AppConfig {
   nvidiaApiKey?: string;
   nvidiaModel?: string;
   hunterApiKey?: string;
-  hunterEmailAccountId?: string;
+  hunterEmailAccountId?: number;
   hunterWebhookSecret?: string;
   outboundMode: 'disabled' | 'enabled';
 }
