@@ -47,7 +47,7 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
     (req.method === 'GET' ? sessionRead : authRoutes)(req, res, next);
   });
 
-  app.use(`${API_BASE_PATH}/webhooks`, createHunterWebhookRouter());
+  app.use(`${API_BASE_PATH}/webhooks`, createHunterWebhookRouter(config));
 
   const protectedRouter = express.Router();
   protectedRouter.use(requireAuth);
