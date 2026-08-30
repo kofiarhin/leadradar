@@ -5,6 +5,13 @@ export {
   type CreateCampaignRequest,
 } from './schemas/campaign';
 export {
+  approveCampaignRequestSchema,
+  sequenceStepSchema,
+  updateSequenceRequestSchema,
+  type ApproveCampaignRequest,
+  type UpdateSequenceRequest,
+} from './schemas/outreach';
+export {
   updateVerticalProfileRequestSchema,
   verticalProfileSchema,
   type UpdateVerticalProfileRequest,
