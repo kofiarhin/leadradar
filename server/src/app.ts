@@ -14,11 +14,11 @@ import { requireAuth } from './middleware/require-auth';
 import { createSessionMiddleware } from './middleware/session';
 import { authRouter } from './modules/auth/auth.routes';
 import { createCampaignRouter } from './modules/campaigns/campaign.routes';
+import { createHunterWebhookRouter } from './modules/integrations/hunter-webhook.routes';
 import { createVerticalProfileRouter } from './modules/verticals/vertical-profile.routes';
 import { workspaceRouter } from './modules/workspaces/workspace.routes';
 
 export interface AppOptions {
-  /** Overridable so tests can exercise throttling without waiting out a real window. */
   loginRateLimit?: LoginRateLimitOptions;
 }
 
@@ -44,6 +44,10 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   app.use(`${API_BASE_PATH}/auth`, (req, res, next) => {
     (req.method === 'GET' ? sessionRead : authRoutes)(req, res, next);
   });
+
+  // Provider webhooks are public endpoints and resolve ownership from LeadRadar's durable
+  // provider references. Provider payloads never select a workspace directly.
+  app.use(`${API_BASE_PATH}/webhooks`, createHunterWebhookRouter());
 
   const protectedRouter = express.Router();
   protectedRouter.use(requireAuth);
