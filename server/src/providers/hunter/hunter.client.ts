@@ -91,7 +91,7 @@ export class HunterClient {
   async createSequence(
     name: string,
     idempotencyKey?: string,
-    emailAccountIds: string[] = [],
+    emailAccountIds: number[] = [],
   ): Promise<string> {
     const response = await this.fetchImpl(this.url('/sequences'), {
       method: 'POST',
@@ -217,7 +217,7 @@ export class HunterClient {
   }
 
   async sendManualReply(input: {
-    emailAccountId: string;
+    emailAccountId: number;
     to: string;
     subject: string;
     body: string;
@@ -238,8 +238,9 @@ export class HunterClient {
       }),
     });
     if (!response.ok) throw new Error(`HUNTER_MANUAL_REPLY_${response.status}`);
-    const payload = (await response.json()) as { data?: { id?: number | string } };
-    if (payload.data?.id === undefined) throw new Error('HUNTER_INVALID_MANUAL_REPLY_RESPONSE');
-    return String(payload.data.id);
+    const payload = (await response.json()) as { data?: { id?: number | string; message_id?: string } };
+    const id = payload.data?.message_id ?? payload.data?.id;
+    if (id === undefined) throw new Error('HUNTER_INVALID_MANUAL_REPLY_RESPONSE');
+    return String(id);
   }
 }
