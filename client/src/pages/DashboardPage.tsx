@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent, ReactElement } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { UpdateVerticalProfileRequest } from '@leadradar/shared';
 
@@ -25,6 +25,22 @@ export function DashboardPage(): ReactElement {
   const workspace = useQuery({ queryKey: ['workspace'], queryFn: fetchWorkspace, retry: false });
   const profile = useQuery({ queryKey: verticalProfileQueryKey, queryFn: fetchVerticalProfile, retry: false });
   const campaigns = useQuery({ queryKey: ['campaigns'], queryFn: fetchCampaigns, retry: false });
+
+  const totals = useMemo(() => {
+    const rows = campaigns.data ?? [];
+    return rows.reduce(
+      (acc, campaign) => ({
+        activeCampaigns: acc.activeCampaigns + (['DISCOVERING', 'PROCESSING', 'READY_FOR_REVIEW', 'APPROVED', 'SENDING'].includes(campaign.status) ? 1 : 0),
+        qualified: acc.qualified + campaign.metricsSnapshot.qualified,
+        verified: acc.verified + campaign.metricsSnapshot.verified,
+        replies: acc.replies + campaign.metricsSnapshot.replies,
+        opportunities: acc.opportunities + campaign.metricsSnapshot.opportunities,
+        readyToBook: acc.readyToBook + campaign.metricsSnapshot.readyToBook,
+        booked: acc.booked + campaign.metricsSnapshot.booked,
+      }),
+      { activeCampaigns: 0, qualified: 0, verified: 0, replies: 0, opportunities: 0, readyToBook: 0, booked: 0 },
+    );
+  }, [campaigns.data]);
 
   const [name, setName] = useState('Primary ICP');
   const [offer, setOffer] = useState('');
@@ -78,17 +94,36 @@ export function DashboardPage(): ReactElement {
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm text-slate-600">Workspace</p>
             {workspace.isPending ? <p role="status" className="text-sm text-slate-600">Loading…</p> : workspace.isError ? <p role="alert" className="text-sm text-red-700">The workspace could not be loaded.</p> : <h1 className="text-2xl font-semibold text-slate-900">{workspace.data.name}</h1>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <Link to="/leads" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Leads</Link>
+            <Link to="/opportunities" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Opportunities</Link>
             <Link to="/campaigns/new" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white">New campaign</Link>
             <button type="button" onClick={handleSignOut} disabled={logoutMutation.isPending} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60">{logoutMutation.isPending ? 'Signing out…' : 'Sign out'}</button>
           </div>
         </header>
+
+        <section aria-label="Outcome metrics" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ['Active campaigns', totals.activeCampaigns],
+            ['Qualified prospects', totals.qualified],
+            ['Verified prospects', totals.verified],
+            ['Replies', totals.replies],
+            ['Positive opportunities', totals.opportunities],
+            ['Ready to book', totals.readyToBook],
+            ['Booked calls', totals.booked],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+            </div>
+          ))}
+        </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
