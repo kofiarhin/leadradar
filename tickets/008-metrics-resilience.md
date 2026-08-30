@@ -1,6 +1,6 @@
 ---
 ticket_schema: 1
-status: ready
+status: verifying
 ---
 
 # 008 — Metrics, retention, resilience, and full-flow verification
