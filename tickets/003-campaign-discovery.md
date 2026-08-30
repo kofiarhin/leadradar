@@ -1,6 +1,6 @@
 ---
 ticket_schema: 1
-status: in-progress
+status: verifying
 ---
 
 # 003 — Campaign intake and public comment discovery
