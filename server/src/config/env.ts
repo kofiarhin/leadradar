@@ -18,6 +18,12 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(SESSION_SECRET_MIN_LENGTH),
   ADMIN_EMAIL: z.email(),
   ADMIN_INITIAL_PASSWORD: z.string().min(1),
+  APIFY_TOKEN: z.string().min(1).optional(),
+  APIFY_ACTOR_ID: z.string().min(1).optional(),
+  NVIDIA_API_KEY: z.string().min(1).optional(),
+  NVIDIA_MODEL: z.string().min(1).optional(),
+  HUNTER_API_KEY: z.string().min(1).optional(),
+  OUTBOUND_MODE: z.enum(['disabled', 'enabled']).default('disabled'),
 });
 
 export interface AppConfig {
@@ -29,14 +35,14 @@ export interface AppConfig {
   sessionSecret: string;
   adminEmail: string;
   adminInitialPassword: string;
+  apifyToken?: string;
+  apifyActorId?: string;
+  nvidiaApiKey?: string;
+  nvidiaModel?: string;
+  hunterApiKey?: string;
+  outboundMode: 'disabled' | 'enabled';
 }
 
-/**
- * Validates the environment and returns typed configuration.
- *
- * Errors name the offending variables only. Values are never included, because this
- * message reaches logs and a failed start-up is a common place for a secret to leak.
- */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const result = envSchema.safeParse(env);
 
@@ -63,5 +69,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionSecret: parsed.SESSION_SECRET,
     adminEmail: parsed.ADMIN_EMAIL,
     adminInitialPassword: parsed.ADMIN_INITIAL_PASSWORD,
+    ...(parsed.APIFY_TOKEN ? { apifyToken: parsed.APIFY_TOKEN } : {}),
+    ...(parsed.APIFY_ACTOR_ID ? { apifyActorId: parsed.APIFY_ACTOR_ID } : {}),
+    ...(parsed.NVIDIA_API_KEY ? { nvidiaApiKey: parsed.NVIDIA_API_KEY } : {}),
+    ...(parsed.NVIDIA_MODEL ? { nvidiaModel: parsed.NVIDIA_MODEL } : {}),
+    ...(parsed.HUNTER_API_KEY ? { hunterApiKey: parsed.HUNTER_API_KEY } : {}),
+    outboundMode: parsed.OUTBOUND_MODE,
   };
 }
