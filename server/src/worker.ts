@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { loadConfig } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './db/connection';
+import { processReplyJob } from './modules/conversations/reply.processor';
 import { processEnrichmentJob } from './modules/enrichment/enrichment.processor';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
@@ -25,6 +26,8 @@ async function processOne(): Promise<boolean> {
       await processEnrichmentJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'RELEASE_CAMPAIGN_PROSPECT') {
       await processReleaseJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'PROCESS_REPLY') {
+      await processReplyJob(job.payload as Record<string, unknown>, config);
     } else {
       throw new Error(`UNSUPPORTED_JOB_TYPE:${job.type}`);
     }
