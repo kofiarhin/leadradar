@@ -101,6 +101,7 @@ export class HunterClient {
       },
       body: JSON.stringify({
         name,
+        add_unsubscribe_link: true,
         ...(emailAccountIds.length > 0 ? { email_account_ids: emailAccountIds } : {}),
       }),
     });
@@ -207,13 +208,21 @@ export class HunterClient {
     };
   }
 
-  async getPendingMessageCount(sequenceId: string): Promise<number> {
+  private async hasMessages(sequenceId: string, status: string): Promise<boolean> {
     const response = await this.fetchImpl(
-      this.url('/messages', { status: 'pending', sequence_id: sequenceId, limit: '1' }),
+      this.url('/messages', { status, sequence_id: sequenceId, limit: '1' }),
     );
     if (!response.ok) throw new Error(`HUNTER_MESSAGES_${response.status}`);
     const payload = (await response.json()) as { data?: { messages?: unknown[] } };
-    return payload.data?.messages?.length ?? 0;
+    return (payload.data?.messages?.length ?? 0) > 0;
+  }
+
+  async hasPendingMessages(sequenceId: string): Promise<boolean> {
+    return this.hasMessages(sequenceId, 'pending');
+  }
+
+  async hasDeliveryFailures(sequenceId: string): Promise<boolean> {
+    return this.hasMessages(sequenceId, 'error,bounced');
   }
 
   async sendManualReply(input: {
