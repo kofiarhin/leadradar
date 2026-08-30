@@ -1,70 +1,80 @@
 # LeadRadar Current State
 
-## Proposed
-
-The complete V1 product journey in `docs/PRD.md` remains to be implemented.
-
 ## Specified
 
 - `docs/PRD.md` — approved LeadRadar V1 product requirements.
-- `docs/SPEC.md` — approved LeadRadar V1 technical specification for the modular-monolith architecture, domain model, provider boundaries, jobs, APIs/UI behaviour, safety controls, and verification approach.
+- `docs/SPEC.md` — approved LeadRadar V1 technical specification.
 
-## Planned
+## In Progress / Verifying
 
-- `plans/001-owner-login.md` — nine TDD slices for owner authentication. Executed.
+- `tickets/001-owner-login.md` — `verifying`; automated owner-auth checks previously passed, browser pass remains outstanding.
+- `tickets/002-vertical-profile.md` — merged to `main`; implementation exists, exact-head CI/browser evidence remains incomplete.
+- `tickets/003-campaign-discovery.md` through `tickets/008-metrics-resilience.md` — implemented on the stacked feature branch chain ending at `feat/008-metrics-resilience`; verification is not yet proven.
 
-## In Progress
+## Implemented on stacked branches
 
-- `tickets/001-owner-login.md` — `verifying`. Implementation and automated verification are complete; the browser pass remains outstanding.
-- `tickets/002-vertical-profile.md` — `verifying` on PR #3. Implementation is present; exact-head automated verification and browser review remain outstanding.
+The branch chain implements the approved V1 architecture and primary workflow:
 
-## Implemented
+- public LinkedIn campaign intake and asynchronous Apify discovery;
+- MongoDB-backed jobs with atomic claiming, retry scheduling, dead state, and a separate worker process;
+- canonical workspace-scoped Prospects, Signals, and CampaignProspects with provider-event/dedupe indexes;
+- NVIDIA structured qualification with `QUALIFIED | REVIEW | REJECTED` routing and retention-class updates;
+- Hunter business-email discovery/verification adapter;
+- deterministic outreach-policy evaluations with version/reason persistence;
+- durable suppression checks and active-relationship blocking;
+- NVIDIA 2–3 step sequence drafting, user edits, approval versioning, and reapproval on post-approval edits;
+- immediate release-time rechecks of approval, verification, policy, suppression, and active relationship state;
+- outbound provider writes disabled by default through `OUTBOUND_MODE=disabled`;
+- Hunter webhook idempotency using `IntegrationEvent`;
+- inbound reply persistence and deterministic outreach pause before NVIDIA classification;
+- reply intent classification, AI draft responses held for human review, and Opportunity records;
+- manual `READY_TO_BOOK`, `BOOKED`, and follow-up opportunity controls;
+- campaign metric recomputation from authoritative records;
+- rejected-temporary signal retention cleanup;
+- Leads search/filter API and UI, Opportunities Inbox UI, campaign creation/detail/sequence-review UI;
+- configurable Apify Actor ID, NVIDIA model, Hunter API key, and provider secrets through environment configuration.
 
-Owner authentication and the application skeleton it required:
+## Not implemented / deliberately excluded
 
-- root npm workspace (`client/`, `server/`, `packages/shared/`) with `engines.node: ">=20.19.0"`;
-- zod-validated server configuration and a Mongoose connection using `MONGODB_URI`;
-- `Workspace` and `AdminUser` models per `docs/SPEC.md` §5.1/§5.2, with `unique(email)` and `passwordHash` excluded from ordinary queries;
-- explicit idempotent seeding (`npm run seed`) that never overwrites a rotated password;
-- scrypt password hashing with per-hash stored parameters, unique random salts, and timing-safe comparison;
-- `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/session`, `GET /api/v1/workspace`;
-- MongoDB-backed `express-session` with an HttpOnly cookie, session regeneration on login, and destruction on logout;
-- strict allowed-origin validation on state-changing routes, default-deny CORS, a JSON content-type guard, and login rate limiting;
-- a React login screen and authenticated route guard using TanStack Query.
+Per approved V1 scope:
 
-Vertical profile implementation on `feat/002-vertical-profile` / PR #3:
+- production deployment/release;
+- public signup, teams/RBAC, billing;
+- authenticated LinkedIn scraping, LinkedIn credentials/cookies, DMs, or reactions;
+- autonomous conversational replies;
+- calendar OAuth or automatic meeting creation;
+- native Gmail/Microsoft OAuth or custom email infrastructure;
+- live outbound execution in the current implementation contract.
 
-- shared zod contracts and response types for the V1 vertical profile;
-- workspace-scoped `VerticalProfile` Mongoose model with versioning;
-- authenticated `GET /api/v1/vertical-profile` and guarded `PUT /api/v1/vertical-profile` create/update flow;
-- editable authenticated dashboard form with loading, empty, success, and error states;
-- server and client automated coverage for the profile flow;
-- `.github/workflows/ci.yml` to run tests, typecheck, lint, and build for pull requests.
+## Verification
 
-Campaigns, provider adapters, jobs, worker processes, qualification, enrichment, outreach, replies, opportunities, and metrics are not implemented yet.
+Previously observed on the owner-auth foundation:
 
-## Verified
+- `npm test` — Passed: 59 server tests and 15 client tests at that earlier revision.
+- `npm run typecheck`, `npm run lint`, `npm run build` — Passed at that earlier revision.
+- owner-auth runtime verification against in-memory MongoDB — Passed at that earlier revision.
 
-Previously verified on the owner-auth implementation:
+For the new stacked V1 implementation ending at `feat/008-metrics-resilience`:
 
-- `npm test` — Passed. 59 server tests (Jest + Supertest) and 15 client tests (Vitest + RTL), run with no `MONGODB_URI`, no credentials, and no network.
-- `npm run typecheck`, `npm run lint`, `npm run build` — Passed.
-- Runtime verification against a real server process backed by an in-memory MongoDB — Passed for the owner-auth flow.
+- `npm test` — **Not run / not observed** on the exact branch head.
+- `npm run typecheck` — **Not run / not observed** on the exact branch head.
+- `npm run lint` — **Not run / not observed** on the exact branch head.
+- `npm run build` — **Not run / not observed** on the exact branch head.
+- GitHub Actions — no usable exact-head run has been observed through the connector.
+- browser desktop/mobile/keyboard/accessibility verification — **Not run**.
+- live Apify/NVIDIA/Hunter calls — **Not run**; adapters were implemented against revalidated provider contracts without exercising customer credentials.
+- live outbound email — **Not run by design**.
 
-Vertical-profile exact-head verification:
-
-- GitHub Actions — pending/not observed yet for PR #3.
-- Local execution in the current Architect environment — Not run because the executor has no outbound network access to clone/install the repository.
-- Browser verification — Not run.
+The new V1 work is therefore implemented but remains `verifying`, not `delivered`.
 
 ## Released
 
-None. No deployment or release evidence exists.
+None. No production deployment or release evidence exists.
 
 ## Unresolved
 
-- Exact provider endpoints/model/Actor identifiers require implementation-time verification.
-- No real customer evidence has been stored under `customers/` yet.
-- The browser pass for the login flow remains outstanding.
-- Exact-head automated verification and browser review for ticket 002 remain outstanding.
-- The login rate limiter uses a per-process memory store. Correct for the single-dyno V1 target; it must become a shared store before the web process scales.
+- Exact-head automated verification and browser review for the stacked V1 branch are outstanding.
+- Provider contract tests and safe credentialed smoke tests remain outstanding.
+- Hunter webhook authenticity/signature verification must be confirmed against the exact production webhook mechanism before production exposure.
+- The login rate limiter remains per-process memory storage and must become shared before horizontal web scaling.
+- No real customer evidence exists under `customers/` yet.
