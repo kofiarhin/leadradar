@@ -1,6 +1,6 @@
 ---
 ticket_schema: 1
-status: ready
+status: verifying
 ---
 
 # 004 — Prospect normalization, signals, deduplication, and qualification
