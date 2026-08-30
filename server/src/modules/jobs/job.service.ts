@@ -2,6 +2,8 @@ import { Types } from 'mongoose';
 
 import { JobModel, type Job } from './job.model';
 
+const JOB_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+
 export async function enqueueJob(input: {
   workspaceId: string | Types.ObjectId;
   type: Job['type'];
@@ -20,8 +22,19 @@ export async function enqueueJob(input: {
 
 export async function claimNextJob(workerId: string): Promise<InstanceType<typeof JobModel> | null> {
   const now = new Date();
+  const staleBefore = new Date(now.getTime() - JOB_LOCK_TIMEOUT_MS);
   return JobModel.findOneAndUpdate(
-    { status: 'PENDING', runAt: { $lte: now } },
+    {
+      $and: [
+        {
+          $or: [
+            { status: 'PENDING', runAt: { $lte: now } },
+            { status: 'RUNNING', lockedAt: { $lte: staleBefore } },
+          ],
+        },
+        { $expr: { $lt: ['$attempts', '$maxAttempts'] } },
+      ],
+    },
     {
       $set: { status: 'RUNNING', lockedAt: now, lockedBy: workerId },
       $inc: { attempts: 1 },
