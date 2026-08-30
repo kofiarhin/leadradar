@@ -3,13 +3,15 @@ import { randomUUID } from 'node:crypto';
 import { loadConfig } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './db/connection';
 import { recomputeCampaignMetrics } from './modules/campaigns/campaign-metrics.processor';
+import { processReplyClassificationJob } from './modules/conversations/classification.processor';
 import { processReplyJob } from './modules/conversations/reply.processor';
 import { processEnrichmentJob } from './modules/enrichment/enrichment.processor';
 import { processDiscoveryJob } from './modules/jobs/discovery.processor';
 import { claimNextJob, completeJob, failJob } from './modules/jobs/job.service';
+import { processOutreachPolicyJob } from './modules/outreach-policy/outreach-policy.processor';
 import { processReleaseJob } from './modules/outreach/release.processor';
 import { processQualificationJob } from './modules/qualification/qualification.processor';
-import { applyRetention } from './modules/retention/retention.processor';
+import { applyRetention, ensureRetentionJobs, nextRetentionRunAt } from './modules/retention/retention.processor';
 
 const config = loadConfig();
 const workerId = `worker-${randomUUID()}`;
@@ -26,20 +28,30 @@ async function processOne(): Promise<boolean> {
       await processQualificationJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'ENRICH_PROSPECT') {
       await processEnrichmentJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'EVALUATE_OUTREACH_POLICY') {
+      await processOutreachPolicyJob(job.payload as Record<string, unknown>);
     } else if (job.type === 'RELEASE_CAMPAIGN_PROSPECT') {
       await processReleaseJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'PROCESS_REPLY') {
       await processReplyJob(job.payload as Record<string, unknown>, config);
+    } else if (job.type === 'CLASSIFY_REPLY') {
+      await processReplyClassificationJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'RECOMPUTE_CAMPAIGN_METRICS') {
       const campaignId = String((job.payload as Record<string, unknown>).campaignId ?? '');
       if (!campaignId) throw new Error('INVALID_METRICS_JOB');
       await recomputeCampaignMetrics(campaignId);
     } else if (job.type === 'APPLY_RETENTION') {
-      await applyRetention();
+      const workspaceId = String((job.payload as Record<string, unknown>).workspaceId ?? '');
+      if (!workspaceId) throw new Error('INVALID_RETENTION_JOB');
+      await applyRetention(workspaceId);
     } else {
       throw new Error(`UNSUPPORTED_JOB_TYPE:${job.type}`);
     }
+
     await completeJob(job);
+    if (job.type === 'APPLY_RETENTION') {
+      await ensureRetentionJobs(nextRetentionRunAt());
+    }
   } catch (error) {
     await failJob(job, error);
   }
@@ -48,6 +60,7 @@ async function processOne(): Promise<boolean> {
 
 async function main(): Promise<void> {
   await connectToDatabase(config.mongodbUri);
+  await ensureRetentionJobs();
   while (!stopping) {
     const processed = await processOne();
     if (!processed) await new Promise((resolve) => setTimeout(resolve, 1_000));
