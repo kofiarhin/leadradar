@@ -21,6 +21,23 @@ describe('HunterClient sequence safety contracts', () => {
     expect(JSON.parse(String(init?.body))).toEqual({ emails: ['lead@example.com'] });
   });
 
+  it('creates a sequence with the configured sending account', async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+      response({ data: { id: 42 } }, 201),
+    );
+    const client = new HunterClient({ apiKey: 'test-key', fetchImpl });
+
+    const id = await client.createSequence('Campaign', 'sequence-key', [128]);
+
+    expect(id).toBe('42');
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init?.headers).toMatchObject({ 'Idempotency-Key': 'sequence-key' });
+    expect(JSON.parse(String(init?.body))).toEqual({
+      name: 'Campaign',
+      email_account_ids: [128],
+    });
+  });
+
   it('configures every reviewed sequence step in order', async () => {
     const fetchImpl = jest.fn<typeof fetch>()
       .mockResolvedValueOnce(response())
@@ -49,12 +66,12 @@ describe('HunterClient sequence safety contracts', () => {
 
   it('sends a reviewed reply with an explicit sender and idempotency key', async () => {
     const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
-      response({ data: { id: 'message-1' } }),
+      response({ data: { message_id: 'message-1' } }),
     );
     const client = new HunterClient({ apiKey: 'test-key', fetchImpl });
 
     const id = await client.sendManualReply({
-      emailAccountId: 'account-1',
+      emailAccountId: 128,
       to: 'lead@example.com',
       subject: 'Re: Hello',
       body: 'Reviewed response',
@@ -65,7 +82,7 @@ describe('HunterClient sequence safety contracts', () => {
     const [, init] = fetchImpl.mock.calls[0];
     expect(init?.headers).toMatchObject({ 'Idempotency-Key': 'reply-key' });
     expect(JSON.parse(String(init?.body))).toMatchObject({
-      email_account_id: 'account-1',
+      email_account_id: 128,
       to: 'lead@example.com',
       subject: 'Re: Hello',
       body: 'Reviewed response',
