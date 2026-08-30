@@ -24,8 +24,8 @@ async function reconcileDeliveryState(
   }
 
   const hunter = new HunterClient({ apiKey: config.hunterApiKey });
-  const pending = await hunter.getPendingMessageCount(campaign.sequence.providerSequenceId);
-  if (pending > 0) {
+  const pending = await hunter.hasPendingMessages(campaign.sequence.providerSequenceId);
+  if (pending) {
     await enqueueJob({
       workspaceId: campaign.workspaceId,
       type: 'RECOMPUTE_CAMPAIGN_METRICS',
@@ -41,7 +41,8 @@ async function reconcileDeliveryState(
   const releasedIds = approvedJoins
     .filter((join) => join.releaseStatus === 'RELEASED')
     .map((join) => join.prospectId);
-  const failedCount = approvedJoins.filter((join) => join.releaseStatus !== 'RELEASED').length;
+  const releaseFailures = approvedJoins.filter((join) => join.releaseStatus !== 'RELEASED').length;
+  const providerFailures = await hunter.hasDeliveryFailures(campaign.sequence.providerSequenceId);
 
   await ProspectModel.updateMany(
     {
@@ -51,7 +52,7 @@ async function reconcileDeliveryState(
     { $set: { 'outreach.status': 'COMPLETED' } },
   );
 
-  campaign.status = failedCount > 0 ? 'PARTIAL_FAILURE' : 'COMPLETED';
+  campaign.status = releaseFailures > 0 || providerFailures ? 'PARTIAL_FAILURE' : 'COMPLETED';
 }
 
 export async function recomputeCampaignMetrics(campaignId: string, config?: AppConfig): Promise<void> {
