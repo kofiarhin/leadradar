@@ -103,4 +103,24 @@ export class HunterClient {
     );
     if (!response.ok) throw new Error(`HUNTER_CANCEL_${response.status}`);
   }
+
+  async sendManualReply(input: {
+    to: string;
+    subject?: string;
+    body: string;
+  }): Promise<string> {
+    const response = await this.fetchImpl(this.url('/messages', {}), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: input.to,
+        ...(input.subject ? { subject: input.subject } : {}),
+        body: input.body,
+      }),
+    });
+    if (!response.ok) throw new Error(`HUNTER_MANUAL_REPLY_${response.status}`);
+    const payload = (await response.json()) as { data?: { id?: number | string } };
+    if (payload.data?.id === undefined) throw new Error('HUNTER_INVALID_MANUAL_REPLY_RESPONSE');
+    return String(payload.data.id);
+  }
 }
