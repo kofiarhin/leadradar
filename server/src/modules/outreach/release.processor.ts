@@ -2,6 +2,7 @@ import type { AppConfig } from '../../config/env';
 import { HunterClient } from '../../providers/hunter/hunter.client';
 import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
+import { enqueueJob } from '../jobs/job.service';
 import { ProspectModel } from '../prospects/prospect.model';
 import { evaluateOutreachPolicy } from '../outreach-policy/outreach-policy.service';
 
@@ -113,6 +114,14 @@ async function startSequenceWhenBatchReady(campaignId: string, hunter: HunterCli
   campaign.sequence.providerStartedAt = new Date();
   campaign.status = 'SENDING';
   await campaign.save();
+
+  await enqueueJob({
+    workspaceId: campaign.workspaceId,
+    type: 'RECOMPUTE_CAMPAIGN_METRICS',
+    payload: { campaignId: campaign._id.toString() },
+    runAt: new Date(Date.now() + 60_000),
+    maxAttempts: 20,
+  });
 }
 
 export async function processReleaseJob(
