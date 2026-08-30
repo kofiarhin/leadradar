@@ -13,6 +13,7 @@ import { requestId } from './middleware/request-id';
 import { requireAuth } from './middleware/require-auth';
 import { createSessionMiddleware } from './middleware/session';
 import { authRouter } from './modules/auth/auth.routes';
+import { createVerticalProfileRouter } from './modules/verticals/vertical-profile.routes';
 import { workspaceRouter } from './modules/workspaces/workspace.routes';
 
 export interface AppOptions {
@@ -64,6 +65,7 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   const protectedRouter = express.Router();
   protectedRouter.use(requireAuth);
   protectedRouter.use('/workspace', workspaceRouter);
+  protectedRouter.use('/vertical-profile', createVerticalProfileRouter(config));
   app.use(API_BASE_PATH, protectedRouter);
 
   app.use(notFoundHandler);
