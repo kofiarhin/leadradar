@@ -25,3 +25,13 @@ export async function updateOpportunityStatus(id: string, status: string): Promi
   });
   return response.opportunity;
 }
+
+export async function sendOpportunityReply(
+  id: string,
+  input: { body: string; subject?: string },
+): Promise<void> {
+  await apiRequest(`/opportunities/${id}/reply`, {
+    method: 'POST',
+    body: input,
+  });
+}
