@@ -16,6 +16,7 @@ import { authRouter } from './modules/auth/auth.routes';
 import { createCampaignRouter } from './modules/campaigns/campaign.routes';
 import { createHunterWebhookRouter } from './modules/integrations/hunter-webhook.routes';
 import { createOpportunityRouter } from './modules/opportunities/opportunity.routes';
+import { createProspectRouter } from './modules/prospects/prospect.routes';
 import { createVerticalProfileRouter } from './modules/verticals/vertical-profile.routes';
 import { workspaceRouter } from './modules/workspaces/workspace.routes';
 
@@ -53,6 +54,7 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   protectedRouter.use('/workspace', workspaceRouter);
   protectedRouter.use('/vertical-profile', createVerticalProfileRouter(config));
   protectedRouter.use('/campaigns', createCampaignRouter(config));
+  protectedRouter.use('/leads', createProspectRouter());
   protectedRouter.use('/opportunities', createOpportunityRouter(config));
   app.use(API_BASE_PATH, protectedRouter);
 
