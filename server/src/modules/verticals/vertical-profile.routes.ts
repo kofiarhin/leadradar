@@ -1,15 +1,40 @@
 import {
   updateVerticalProfileRequestSchema,
+  type VerticalProfileCompanySize,
   type VerticalProfileResponse,
 } from '@leadradar/shared';
 import express, { Router, type NextFunction, type Request, type Response } from 'express';
 
 import type { AppConfig } from '../../config/env';
+import { validationError } from '../../errors/app-error';
 import { createOriginGuard, requireJsonContentType } from '../../middleware/request-guards';
 import { authContext } from '../../middleware/require-auth';
 import { VerticalProfileModel } from './vertical-profile.model';
 
+type StoredCompanySize = InstanceType<typeof VerticalProfileModel>['companySize'];
+
+/**
+ * Mongoose reports an unset subdocument number as `null`, while the API contract uses
+ * optional properties. Dropping the nulls keeps a stored blank out of the response.
+ */
+function toCompanySize(stored: StoredCompanySize): VerticalProfileCompanySize | undefined {
+  if (!stored) {
+    return undefined;
+  }
+
+  const companySize: VerticalProfileCompanySize = {
+    ...(typeof stored.min === 'number' ? { min: stored.min } : {}),
+    ...(typeof stored.max === 'number' ? { max: stored.max } : {}),
+  };
+
+  return companySize.min === undefined && companySize.max === undefined
+    ? undefined
+    : companySize;
+}
+
 function toResponse(profile: InstanceType<typeof VerticalProfileModel>): VerticalProfileResponse {
+  const companySize = toCompanySize(profile.companySize);
+
   return {
     verticalProfile: {
       id: profile._id.toString(),
@@ -18,7 +43,7 @@ function toResponse(profile: InstanceType<typeof VerticalProfileModel>): Vertica
       offer: profile.offer,
       targetRoles: profile.targetRoles,
       targetIndustries: profile.targetIndustries,
-      ...(profile.companySize ? { companySize: profile.companySize } : {}),
+      ...(companySize ? { companySize } : {}),
       targetRegions: profile.targetRegions,
       positiveSignals: profile.positiveSignals,
       negativeSignals: profile.negativeSignals,
@@ -58,7 +83,13 @@ export function createVerticalProfileRouter(config: AppConfig): Router {
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { workspaceId } = authContext(req);
-        const input = updateVerticalProfileRequestSchema.parse(req.body);
+        const parsed = updateVerticalProfileRequestSchema.safeParse(req.body);
+        if (!parsed.success) {
+          // The submitted values and the raw zod issues are deliberately not echoed back.
+          throw validationError('The vertical profile was not valid.');
+        }
+
+        const input = parsed.data;
         const current = await VerticalProfileModel.findOne({ workspaceId }).sort({ updatedAt: -1 });
 
         if (!current) {

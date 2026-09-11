@@ -1,4 +1,4 @@
-import { API_BASE_PATH } from '@leadradar/shared';
+import { API_BASE_PATH, ERROR_CODES } from '@leadradar/shared';
 import request from 'supertest';
 
 import { clearTestDatabase, connectTestDatabase, disconnectTestDatabase } from '../../../test/db';
@@ -79,11 +79,43 @@ describe('vertical profile routes', () => {
   it('rejects invalid profile input', async () => {
     const agent = await loginAgent();
 
-    await agent
+    const response = await agent
       .put(`${API_BASE_PATH}/vertical-profile`)
       .set('Origin', 'http://localhost:5173')
       .send({ ...validProfile, targetRoles: [] })
       .expect(400);
+
+    expect(response.body.error.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+    // A validation failure must not leak raw zod issues, stack traces, or field values.
+    expect(JSON.stringify(response.body)).not.toMatch(/issues|stack|targetRoles/);
+  });
+
+  it('round-trips an optional company size without leaking unset values', async () => {
+    const agent = await loginAgent();
+
+    const created = await agent
+      .put(`${API_BASE_PATH}/vertical-profile`)
+      .set('Origin', 'http://localhost:5173')
+      .send({ ...validProfile, companySize: { min: 10, max: 200 } })
+      .expect(201);
+
+    expect(created.body.verticalProfile.companySize).toEqual({ min: 10, max: 200 });
+
+    const read = await agent.get(`${API_BASE_PATH}/vertical-profile`).expect(200);
+    expect(read.body.verticalProfile.companySize).toEqual({ min: 10, max: 200 });
+  });
+
+  it('omits company size entirely when the owner did not supply one', async () => {
+    const agent = await loginAgent();
+
+    await agent
+      .put(`${API_BASE_PATH}/vertical-profile`)
+      .set('Origin', 'http://localhost:5173')
+      .send(validProfile)
+      .expect(201);
+
+    const read = await agent.get(`${API_BASE_PATH}/vertical-profile`).expect(200);
+    expect(read.body.verticalProfile).not.toHaveProperty('companySize');
   });
 
   it('rejects state changes from an untrusted origin', async () => {
