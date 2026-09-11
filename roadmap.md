@@ -4,7 +4,7 @@
 
 Implement the approved LeadRadar V1 product defined by `docs/PRD.md` and `docs/SPEC.md`, proving the core path from a public LinkedIn post signal to qualified prospects, approved outreach, reply handling, and call-ready opportunities while preserving deterministic safety controls and human approval boundaries.
 
-Current lifecycle: **In progress**. Owner authentication is implemented and automatically verified; the rest of V1 remains specified.
+Current lifecycle: **In progress**. Owner authentication and the editable vertical profile are implemented and automatically verified; browser verification of both is outstanding, and the rest of V1 remains specified.
 
 ## Ordered V1 outcomes
 
@@ -13,7 +13,9 @@ The following order reflects the dependency flow in the approved PRD/SPEC and is
 1. **Foundation and owner access — Partially implemented**
    - Establish the npm-workspace application structure, shared contracts, configuration, MongoDB connection, single-owner authentication, workspace, and editable vertical profile.
    - Delivered by `tickets/001-owner-login.md` (`verifying`): workspace structure, shared contracts, configuration, MongoDB connection, seeded owner/workspace, and the authenticated session. Automated checks pass; the browser pass is outstanding.
-   - Remaining: the editable vertical profile (`docs/SPEC.md` §5.3, §8.2), which needs its own ticket.
+   - Delivered by `tickets/002-vertical-profile.md` (`verifying`): the editable vertical profile (`docs/SPEC.md` §5.3, §8.2).
+   - Stabilized by `tickets/003-stabilize-foundation.md` (`verifying`): `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` are observed green locally on `fix/003-stabilize-foundation`, and the Node baseline moved to 22.22.2.
+   - Remaining: browser verification for the login and vertical-profile flows, and an observed CI run on the fixed head. Outcome 1 is not complete until both exist.
 2. **Campaign intake and public comment discovery — Specified**
    - Create a campaign from a supported public LinkedIn post URL and ingest public comments through the Apify adapter asynchronously.
 3. **Canonical prospects, signals, deduplication, and qualification — Specified**
@@ -27,7 +29,7 @@ The following order reflects the dependency flow in the approved PRD/SPEC and is
 7. **Outcome metrics, retention, resilience, and full-flow verification — Specified**
    - Provide campaign funnel metrics, retention handling, retries/idempotency/failure visibility, and verified desktop/mobile/error/accessibility coverage for the complete V1 flow.
 
-`/morning-brief` or `/deliver-ticket <task>` selects the smallest next outcome. The next one is the editable vertical profile, completing outcome 1.
+`/morning-brief` or `/deliver-ticket <task>` selects the smallest next outcome. Outcome 1 closes once the outstanding browser verification and an observed CI run on the fixed head exist; outcome 2 (campaign intake and public comment discovery) is next after that.
 
 ## Explicit V1 exclusions
 

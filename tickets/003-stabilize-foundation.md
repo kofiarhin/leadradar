@@ -2,12 +2,12 @@
 ticket_schema: 1
 id: "003"
 title: "Restore green CI and verify foundation"
-status: ready
+status: verifying
 ---
 
 # 003: Restore green CI and verify login + vertical profile
 
-Status: Ready for planning
+Status: Verifying — implementation and automated verification complete; browser verification outstanding
 Project: LeadRadar
 Destination: Codex
 
@@ -87,14 +87,16 @@ Relevant states:
 
 ## Acceptance Criteria
 
-- [ ] Invalid `PUT /api/v1/vertical-profile` input covered by the existing failing test returns the intended `400` validation response with the project-standard safe error shape instead of `500`.
-- [ ] Client Vitest suites start and execute successfully under the same supported Node baseline used by CI, with no engine incompatibility that invalidates the test run.
-- [ ] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all pass on the exact implementation head and the results are recorded.
+- [x] Invalid `PUT /api/v1/vertical-profile` input covered by the existing failing test returns the intended `400` validation response with the project-standard safe error shape instead of `500`.
+- [x] Client Vitest suites start and execute successfully under the same supported Node baseline used by CI, with no engine incompatibility that invalidates the test run.
+- [x] `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all pass on the exact implementation head and the results are recorded.
 - [ ] In a browser, valid owner login reaches the protected application, logout/session expiry protection works as specified, and unauthenticated protected navigation redirects to login.
 - [ ] In a browser, the vertical profile supports empty/create, load, edit, save, validation/error, and persisted-reload behavior.
 - [ ] Login and vertical-profile flows are inspected at desktop and mobile widths with keyboard navigation plus console/network review; no in-scope `Must fix` remains.
-- [ ] Existing authentication/session/origin/workspace-scoping safety behavior remains unchanged except for the intended validation/compatibility fixes.
-- [ ] `tickets/001-owner-login.md`, `tickets/002-vertical-profile.md`, and relevant project-status documentation are updated only after verification to match observed results.
+- [x] Existing authentication/session/origin/workspace-scoping safety behavior remains unchanged except for the intended validation/compatibility fixes.
+- [x] `tickets/001-owner-login.md`, `tickets/002-vertical-profile.md`, and relevant project-status documentation are updated only after verification to match observed results.
+
+The three unchecked criteria are **Not run**, not waived: browser automation is unavailable in this environment, and by explicit instruction no browser-testing dependency was added. HTTP-level runtime verification was used as the best available automated evidence and covers the API contract only — not client-side redirects, rendered layout, focus order, or browser console output. This ticket stays `verifying` until the browser pass is actually performed.
 
 ## Implementation Plan — Complete After Inspection
 
@@ -167,33 +169,43 @@ Review:
 
 ## Completion Handoff
 
-Pending implementation and verification.
+Implemented and automatically verified on 2026-09-11 at `fix/003-stabilize-foundation`, branched from `main` at `8468dc2`. **Not complete** — browser verification is outstanding.
+
+Inspection found **four** red checks on `main`, not the two named in this ticket. CI run `33288679513` stopped at `npm test` and never reached typecheck or build, which understated the breakage.
 
 Changes:
 
-- Pending implementation.
+- `server/src/modules/verticals/vertical-profile.routes.ts` — `PUT` now uses `safeParse` and throws `validationError()` on failure, matching the existing pattern in `auth.routes.ts`. Added `toCompanySize()`, which drops the `null` min/max Mongoose reports for an unset optional subdocument field.
+- `server/src/modules/verticals/vertical-profile.routes.test.ts` — the invalid-input test now asserts the `VALIDATION_ERROR` code and that no zod issues, stack, or field names leak. Two new tests cover the optional `companySize` round-trip and its omission when unset.
+- `client/src/pages/DashboardPage.test.tsx` — the save assertion now reads the first `mutationFn` argument, because `@tanstack/react-query` 5.102.8 calls it as `(variables, context)`. Assertion strength is unchanged; no production code changed.
+- `package.json`, `.github/workflows/ci.yml`, `package-lock.json` — Node baseline `20.19.0` to `22.22.2`. The lockfile change is the root `engines.node` field only; no dependency was added, removed, or re-resolved.
+- `client/vite.config.ts`, `client/tsconfig.json` — the client now resolves `@leadradar/shared` to its TypeScript source instead of its CommonJS `dist`. The shared package compiles to CJS for the Node server, and Vite does not pre-bundle linked workspace packages, so the browser received `exports.API_BASE_PATH = …` and failed with `does not provide an export named 'API_BASE_PATH'`, rendering a blank page. A Vite `resolve.alias` plus a matching tsconfig `paths` entry keeps type and runtime resolution identical. Server consumption of `dist` is unchanged.
+- `tickets/001-owner-login.md`, `tickets/002-vertical-profile.md`, `context/current-state.md`, `roadmap.md`, `README.md` — synchronized to observed evidence.
 
 Acceptance criteria:
 
-- Not yet verified.
+- Met: invalid `PUT /api/v1/vertical-profile` input returns 400 `VALIDATION_ERROR` with the safe error shape; client Vitest suites start and pass under the supported baseline; `npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` all pass and are recorded; authentication, session, trusted-origin, and workspace-scoping behaviour is unchanged and re-verified.
+- Not met: the three browser criteria (login/session in a browser, vertical profile in a browser, desktop/mobile/keyboard/console review). Browser automation is unavailable in this environment and none was added.
 
-Checks:
+Checks (Node 22.22.2, npm 10.9.7):
 
-- Passed: None for this ticket yet.
-- Failed: Current observed `main` CI run `33288679513` fails during `npm test`; server vertical-profile validation returns 500 instead of expected 400, and client Vitest workers fail under the configured Node 20.19.0 baseline because installed test dependencies require newer Node versions.
-- Not run: Post-fix exact-head checks and browser verification; implementation has not been authorized or performed by this ticket.
+- Passed: `npm test` (exit 0 — 9 server suites / 66 tests, 3 client files / 16 tests); `npm run typecheck` (exit 0); `npm run lint` (exit 0); `npm run build` (exit 0); HTTP-level runtime verification against the built server process and an in-memory MongoDB (37/37 checks).
+- Failed: none after the fix. Before it: `npm test` 1 server + 1 client failure, `npm run typecheck` exit 2, `npm run build` exit 2.
+- Not run: browser desktop/mobile/keyboard/console verification; GitHub Actions on the fixed head — the branch is unpushed, and no push, PR, merge, or deployment was performed.
 
 Review findings:
 
-- Must fix: Current required verification is red and browser verification for the existing foundation remains incomplete.
-- Should fix: Synchronize stale project lifecycle/status documentation after the underlying checks are actually completed.
-- Okay to ship: Not established.
+- Must fix: none outstanding in code. The browser pass remains an open acceptance gap for this ticket.
+- Should fix: `engines.node: ">=22.22.2"` permits Node 23 and 25, which `jsdom@30` excludes; a `<23` bound or a documented LTS-only policy would close the gap. Carried forward from ticket 001: the login rate limiter still uses a per-process memory store.
+- Okay to ship: the client bundle is 731 kB (176 kB gzip) and emits Vite's 500 kB chunk warning; pre-existing and out of scope.
 
 Limitations:
 
-- No post-fix evidence exists yet.
+- Local evidence only. CI on the fixed head is unverified.
+- HTTP-level runtime verification exercises the API contract, not the rendered UI: no evidence exists for client-side redirects, focus order, responsive layout, or browser console output.
 - No deployment or production-health conclusion is in scope or supported.
 
 Human-review items:
 
-- Review any proposed Node baseline/dependency compatibility change during implementation planning if it materially changes supported runtime expectations.
+- The Node baseline moved from 20.19.0 to 22.22.2. Confirm this matches the intended hosting target before the change is published.
+- Run the browser pass and then close the three outstanding acceptance criteria.
