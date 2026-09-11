@@ -85,6 +85,7 @@ export function createHunterWebhookRouter(config: AppConfig): Router {
       await enqueueJob({
         workspaceId: prospect.workspaceId,
         type: 'PROCESS_REPLY',
+        idempotencyKey: `PROCESS_REPLY:${event._id.toString()}`,
         payload: { integrationEventId: event._id.toString(), prospectId: prospect._id.toString(), hunter: body },
       });
       res.status(202).json({ accepted: true });

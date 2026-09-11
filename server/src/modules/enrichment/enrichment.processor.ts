@@ -99,6 +99,7 @@ export async function processEnrichmentJob(
   await enqueueJob({
     workspaceId: campaign.workspaceId,
     type: 'EVALUATE_OUTREACH_POLICY',
+    idempotencyKey: `EVALUATE_OUTREACH_POLICY:${campaignId}:${prospectId}`,
     payload: { campaignId, prospectId },
   });
 }

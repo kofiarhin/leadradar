@@ -31,7 +31,12 @@ async function maybeStartPreparedSequence(campaignId: string, config: AppConfig)
   await enqueueJob({
     workspaceId: campaign.workspaceId,
     type: 'RECOMPUTE_CAMPAIGN_METRICS',
-    payload: { campaignId: campaign._id.toString() },
+    idempotencyKey: `RECOMPUTE_CAMPAIGN_METRICS:delivery:${campaign._id.toString()}:${campaign.sequence.providerSequenceId}:0`,
+    payload: {
+      campaignId: campaign._id.toString(),
+      providerSequenceId: campaign.sequence.providerSequenceId,
+      deliveryCheck: 0,
+    },
     runAt: new Date(Date.now() + 60_000),
     maxAttempts: 20,
   });

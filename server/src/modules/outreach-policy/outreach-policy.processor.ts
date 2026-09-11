@@ -49,6 +49,7 @@ export async function processOutreachPolicyJob(payload: Record<string, unknown>)
   await enqueueJob({
     workspaceId: campaign.workspaceId,
     type: 'RECOMPUTE_CAMPAIGN_METRICS',
-    payload: { campaignId },
+    idempotencyKey: `RECOMPUTE_CAMPAIGN_METRICS:policy:${campaignId}:${prospectId}`,
+    payload: { campaignId, triggerKey: `policy:${prospectId}` },
   });
 }

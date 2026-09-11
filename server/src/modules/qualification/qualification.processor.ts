@@ -1,6 +1,10 @@
 import type { AppConfig } from '../../config/env';
 import type { ApifyDiscoveryItem } from '../../providers/apify/apify.client';
-import { NvidiaClient } from '../../providers/nvidia/nvidia.client';
+import {
+  NVIDIA_PROMPT_VERSION,
+  NVIDIA_SCHEMA_VERSION,
+  NvidiaClient,
+} from '../../providers/nvidia/nvidia.client';
 import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { enqueueJob } from '../jobs/job.service';
@@ -119,6 +123,8 @@ export async function processQualificationJob(
         reason: result.reason,
         evaluatedAt: new Date(),
         model: config.nvidiaModel,
+        promptVersion: NVIDIA_PROMPT_VERSION,
+        schemaVersion: NVIDIA_SCHEMA_VERSION,
         verticalProfileVersion: campaign.verticalProfileVersion,
       },
     });
@@ -161,6 +167,7 @@ export async function processQualificationJob(
       await enqueueJob({
         workspaceId: campaign.workspaceId,
         type: 'ENRICH_PROSPECT',
+        idempotencyKey: `ENRICH_PROSPECT:${campaign._id.toString()}:${prospect._id.toString()}`,
         payload: { campaignId: campaign._id.toString(), prospectId: prospect._id.toString() },
       });
     }

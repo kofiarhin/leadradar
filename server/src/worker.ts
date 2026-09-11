@@ -38,9 +38,11 @@ async function processOne(): Promise<boolean> {
     } else if (job.type === 'CLASSIFY_REPLY') {
       await processReplyClassificationJob(job.payload as Record<string, unknown>, config);
     } else if (job.type === 'RECOMPUTE_CAMPAIGN_METRICS') {
-      const campaignId = String((job.payload as Record<string, unknown>).campaignId ?? '');
+      const metricsPayload = job.payload as Record<string, unknown>;
+      const campaignId = String(metricsPayload.campaignId ?? '');
+      const deliveryCheck = typeof metricsPayload.deliveryCheck === 'number' ? metricsPayload.deliveryCheck : 0;
       if (!campaignId) throw new Error('INVALID_METRICS_JOB');
-      await recomputeCampaignMetrics(campaignId, config);
+      await recomputeCampaignMetrics(campaignId, config, deliveryCheck);
     } else if (job.type === 'APPLY_RETENTION') {
       const workspaceId = String((job.payload as Record<string, unknown>).workspaceId ?? '');
       if (!workspaceId) throw new Error('INVALID_RETENTION_JOB');

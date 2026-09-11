@@ -1,4 +1,5 @@
 import { JobModel } from '../jobs/job.model';
+import { enqueueJob } from '../jobs/job.service';
 import { SignalModel } from '../signals/signal.model';
 import { WorkspaceModel } from '../workspaces/workspace.model';
 
@@ -22,10 +23,13 @@ export async function ensureRetentionJobs(runAt: Date = new Date()): Promise<voi
         status: { $in: ['PENDING', 'RUNNING'] },
       });
       if (!existing) {
-        await JobModel.create({
+        const workspaceId = workspace._id.toString();
+        const scheduledFor = runAt.toISOString();
+        await enqueueJob({
           workspaceId: workspace._id,
           type: 'APPLY_RETENTION',
-          payload: { workspaceId: workspace._id.toString() },
+          idempotencyKey: `APPLY_RETENTION:${workspaceId}:${scheduledFor}`,
+          payload: { workspaceId, scheduledFor },
           runAt,
         });
       }

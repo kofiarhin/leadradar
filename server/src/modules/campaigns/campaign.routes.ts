@@ -11,10 +11,14 @@ import express, { Router, type NextFunction, type Request, type Response } from 
 import type { AppConfig } from '../../config/env';
 import { createOriginGuard, requireJsonContentType } from '../../middleware/request-guards';
 import { authContext } from '../../middleware/require-auth';
-import { NvidiaClient } from '../../providers/nvidia/nvidia.client';
-import { CampaignProspectModel } from './campaign-prospect.model';
-import { JobModel } from '../jobs/job.model';
+import {
+  NVIDIA_PROMPT_VERSION,
+  NVIDIA_SCHEMA_VERSION,
+  NvidiaClient,
+} from '../../providers/nvidia/nvidia.client';
+import { enqueueJob } from '../jobs/job.service';
 import { VerticalProfileModel } from '../verticals/vertical-profile.model';
+import { CampaignProspectModel } from './campaign-prospect.model';
 import { CampaignModel } from './campaign.model';
 
 function toDto(campaign: InstanceType<typeof CampaignModel>): CampaignDto {
@@ -116,9 +120,10 @@ export function createCampaignRouter(config: AppConfig): Router {
         discovery: { provider: 'APIFY', startedAt: new Date() },
       });
 
-      await JobModel.create({
+      await enqueueJob({
         workspaceId,
         type: 'INGEST_DISCOVERY_RESULTS',
+        idempotencyKey: `INGEST_DISCOVERY_RESULTS:${campaign._id.toString()}:START`,
         payload: { campaignId: campaign._id.toString(), phase: 'START' },
       });
 
@@ -150,6 +155,9 @@ export function createCampaignRouter(config: AppConfig): Router {
       campaign.sequence.steps = draft.steps;
       campaign.sequence.draftVersion += 1;
       campaign.sequence.approvalStatus = hadApproval ? 'REAPPROVAL_REQUIRED' : 'DRAFT';
+      campaign.sequence.model = config.nvidiaModel;
+      campaign.sequence.promptVersion = NVIDIA_PROMPT_VERSION;
+      campaign.sequence.schemaVersion = NVIDIA_SCHEMA_VERSION;
       campaign.status = 'READY_FOR_REVIEW';
       invalidateProviderPreparation(campaign);
       await campaign.save();
@@ -203,15 +211,19 @@ export function createCampaignRouter(config: AppConfig): Router {
       campaign.status = 'APPROVED';
       await campaign.save();
 
-      await JobModel.insertMany(readyProspects.map((prospect) => ({
-        workspaceId,
-        type: 'RELEASE_CAMPAIGN_PROSPECT',
-        payload: {
-          campaignId: campaign._id.toString(),
-          prospectId: prospect.prospectId.toString(),
-          approvedVersion: campaign.sequence.approvedVersion,
-        },
-      })));
+      await Promise.all(readyProspects.map(async (prospect) => {
+        const prospectId = prospect.prospectId.toString();
+        await enqueueJob({
+          workspaceId,
+          type: 'RELEASE_CAMPAIGN_PROSPECT',
+          idempotencyKey: `RELEASE_CAMPAIGN_PROSPECT:${campaign._id.toString()}:${prospectId}:v${campaign.sequence.approvedVersion}`,
+          payload: {
+            campaignId: campaign._id.toString(),
+            prospectId,
+            approvedVersion: campaign.sequence.approvedVersion,
+          },
+        });
+      }));
       res.status(200).json({ campaign: toDto(campaign) } satisfies CampaignResponse);
     } catch (error) { next(error); }
   });

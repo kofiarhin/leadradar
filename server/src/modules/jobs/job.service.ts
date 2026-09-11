@@ -1,23 +1,63 @@
+import { createHash } from 'node:crypto';
 import { Types } from 'mongoose';
 
 import { JobModel, type Job } from './job.model';
 
 const JOB_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value instanceof Date) return value.toISOString();
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, item]) => item !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, canonicalize(item)]),
+    );
+  }
+  return value;
+}
+
+export function buildJobIdempotencyKey(type: Job['type'], payload: Record<string, unknown>): string {
+  const digest = createHash('sha256')
+    .update(JSON.stringify(canonicalize(payload)))
+    .digest('hex');
+  return `${type}:${digest}`;
+}
+
+function isDuplicateKey(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 11000);
+}
+
 export async function enqueueJob(input: {
   workspaceId: string | Types.ObjectId;
   type: Job['type'];
   payload: Record<string, unknown>;
+  idempotencyKey?: string;
   runAt?: Date;
   maxAttempts?: number;
 }): Promise<void> {
-  await JobModel.create({
-    workspaceId: input.workspaceId,
-    type: input.type,
-    payload: input.payload,
-    ...(input.runAt ? { runAt: input.runAt } : {}),
-    ...(input.maxAttempts ? { maxAttempts: input.maxAttempts } : {}),
-  });
+  const idempotencyKey = input.idempotencyKey ?? buildJobIdempotencyKey(input.type, input.payload);
+  try {
+    await JobModel.updateOne(
+      { idempotencyKey },
+      {
+        $setOnInsert: {
+          workspaceId: input.workspaceId,
+          type: input.type,
+          idempotencyKey,
+          payload: input.payload,
+          runAt: input.runAt ?? new Date(),
+          ...(input.maxAttempts !== undefined ? { maxAttempts: input.maxAttempts } : {}),
+        },
+      },
+      { upsert: true },
+    );
+  } catch (error) {
+    if (isDuplicateKey(error)) return;
+    throw error;
+  }
 }
 
 export async function claimNextJob(workerId: string): Promise<InstanceType<typeof JobModel> | null> {

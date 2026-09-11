@@ -16,6 +16,7 @@ const jobSchema = new Schema(
   {
     workspaceId: { type: Schema.Types.ObjectId, required: true, index: true },
     type: { type: String, enum: JOB_TYPES, required: true, index: true },
+    idempotencyKey: { type: String, trim: true },
     status: { type: String, enum: ['PENDING','RUNNING','SUCCEEDED','FAILED','DEAD'], default: 'PENDING', required: true, index: true },
     payload: { type: Schema.Types.Mixed, required: true },
     runAt: { type: Date, default: () => new Date(), required: true, index: true },
@@ -31,6 +32,10 @@ const jobSchema = new Schema(
 );
 
 jobSchema.index({ status: 1, runAt: 1, lockedAt: 1 });
+jobSchema.index(
+  { idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);
 
 export type Job = InferSchemaType<typeof jobSchema>;
 export const JobModel: Model<Job> = model<Job>('Job', jobSchema);

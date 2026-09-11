@@ -12,6 +12,7 @@ async function reconcileDeliveryState(
   campaign: InstanceType<typeof CampaignModel>,
   joins: Array<{ prospectId: { toString(): string }; releaseStatus: string }>,
   config?: AppConfig,
+  deliveryCheck = 0,
 ): Promise<void> {
   if (
     !config ||
@@ -26,10 +27,16 @@ async function reconcileDeliveryState(
   const hunter = new HunterClient({ apiKey: config.hunterApiKey });
   const pending = await hunter.hasPendingMessages(campaign.sequence.providerSequenceId);
   if (pending) {
+    const nextDeliveryCheck = deliveryCheck + 1;
     await enqueueJob({
       workspaceId: campaign.workspaceId,
       type: 'RECOMPUTE_CAMPAIGN_METRICS',
-      payload: { campaignId: campaign._id.toString() },
+      idempotencyKey: `RECOMPUTE_CAMPAIGN_METRICS:delivery:${campaign._id.toString()}:${campaign.sequence.providerSequenceId}:${nextDeliveryCheck}`,
+      payload: {
+        campaignId: campaign._id.toString(),
+        providerSequenceId: campaign.sequence.providerSequenceId,
+        deliveryCheck: nextDeliveryCheck,
+      },
       runAt: new Date(Date.now() + 60_000),
       maxAttempts: 20,
     });
@@ -55,12 +62,16 @@ async function reconcileDeliveryState(
   campaign.status = releaseFailures > 0 || providerFailures ? 'PARTIAL_FAILURE' : 'COMPLETED';
 }
 
-export async function recomputeCampaignMetrics(campaignId: string, config?: AppConfig): Promise<void> {
+export async function recomputeCampaignMetrics(
+  campaignId: string,
+  config?: AppConfig,
+  deliveryCheck = 0,
+): Promise<void> {
   const campaign = await CampaignModel.findById(campaignId);
   if (!campaign) throw new Error('CAMPAIGN_NOT_FOUND');
 
   const joins = await CampaignProspectModel.find({ campaignId }).lean();
-  await reconcileDeliveryState(campaign, joins, config);
+  await reconcileDeliveryState(campaign, joins, config, deliveryCheck);
   const prospectIds = joins.map((join) => join.prospectId);
 
   const [signals, qualified, verified, eligible, contacted, replies, opportunities, readyToBook, booked] = await Promise.all([

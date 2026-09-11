@@ -137,6 +137,7 @@ export function createProspectRouter(config: AppConfig): Router {
         await enqueueJob({
           workspaceId,
           type: 'ENRICH_PROSPECT',
+          idempotencyKey: `ENRICH_PROSPECT:${campaign._id.toString()}:${prospect._id.toString()}`,
           payload: { campaignId: campaign._id.toString(), prospectId: prospect._id.toString() },
         });
       }
@@ -181,7 +182,12 @@ export function createProspectRouter(config: AppConfig): Router {
       join.releaseStatus = decision === 'ALLOWED' ? 'READY' : 'BLOCKED';
       prospect.set({ 'outreach.status': decision === 'ALLOWED' ? 'ELIGIBLE' : 'BLOCKED' });
       await Promise.all([join.save(), prospect.save()]);
-      await enqueueJob({ workspaceId, type: 'RECOMPUTE_CAMPAIGN_METRICS', payload: { campaignId: campaign._id.toString() } });
+      await enqueueJob({
+        workspaceId,
+        type: 'RECOMPUTE_CAMPAIGN_METRICS',
+        idempotencyKey: `RECOMPUTE_CAMPAIGN_METRICS:policy-review:${campaign._id.toString()}:${prospect._id.toString()}`,
+        payload: { campaignId: campaign._id.toString(), triggerKey: `policy-review:${prospect._id.toString()}` },
+      });
       res.status(200).json({ prospect, campaignProspect: join });
     } catch (error) {
       next(error);
