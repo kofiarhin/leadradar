@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 export interface ApifyDiscoveryItem {
   providerSignalId: string;
   profileUrl?: string;
@@ -56,40 +58,44 @@ export class ApifyClient {
     return { id: payload.data.id, status: payload.data.status };
   }
 
-  async getDiscoveryItems(runId: string): Promise<ApifyDiscoveryItem[]> {
+  async getDiscoveryItems(runId: string, postUrl: string): Promise<ApifyDiscoveryItem[]> {
     const response = await this.fetchImpl(
       this.url(`/actor-runs/${encodeURIComponent(runId)}/dataset/items?clean=true`),
     );
     if (!response.ok) throw new Error(`APIFY_DATASET_${response.status}`);
     const payload = (await response.json()) as unknown[];
-    return payload.flatMap((raw, index) => normalizeItem(raw, index));
+    return payload.flatMap((raw) => normalizeItem(raw, postUrl));
   }
 }
 
-function normalizeItem(raw: unknown, index: number): ApifyDiscoveryItem[] {
+function normalizeItem(raw: unknown, postUrl: string): ApifyDiscoveryItem[] {
   if (!raw || typeof raw !== 'object') return [];
   const item = raw as Record<string, unknown>;
   const commentText = firstString(item, ['commentText', 'text', 'comment', 'content']);
   const displayName = firstString(item, ['displayName', 'authorName', 'name', 'author']);
   if (!commentText || !displayName) return [];
-  const providerSignalId =
-    firstString(item, ['commentId', 'id', 'urn']) ?? `${displayName}:${index}:${commentText.slice(0, 40)}`;
+
+  const profileUrl = firstString(item, ['profileUrl', 'authorUrl', 'linkedinUrl']);
+  const company = firstString(item, ['company', 'companyName']);
+  const profileIdentity = profileUrl?.trim().toLowerCase()
+    ?? `${displayName.trim().toLowerCase()}|${company?.trim().toLowerCase() ?? ''}`;
+  const fallbackSignalId = createHash('sha256')
+    .update(`${postUrl.trim()}\n${profileIdentity}\n${commentText}`)
+    .digest('hex');
+  const providerSignalId = firstString(item, ['commentId', 'id', 'urn']) ?? `fallback:${fallbackSignalId}`;
+
   return [{
     providerSignalId,
     displayName,
     commentText,
-    ...(firstString(item, ['profileUrl', 'authorUrl', 'linkedinUrl'])
-      ? { profileUrl: firstString(item, ['profileUrl', 'authorUrl', 'linkedinUrl']) }
-      : {}),
+    ...(profileUrl ? { profileUrl } : {}),
     ...(firstString(item, ['createdAt', 'postedAt', 'timestamp'])
       ? { occurredAt: firstString(item, ['createdAt', 'postedAt', 'timestamp']) }
       : {}),
     ...(firstString(item, ['role', 'position', 'headline'])
       ? { role: firstString(item, ['role', 'position', 'headline']) }
       : {}),
-    ...(firstString(item, ['company', 'companyName'])
-      ? { company: firstString(item, ['company', 'companyName']) }
-      : {}),
+    ...(company ? { company } : {}),
   }];
 }
 

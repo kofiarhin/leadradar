@@ -35,14 +35,14 @@ export function LoginPage(): ReactElement {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-app-background px-4 py-12 text-foreground">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Sign in to LeadRadar</h1>
-        <p className="mt-1 text-sm text-slate-600">Use your owner account.</p>
+        <h1 className="text-2xl font-semibold text-foreground">Sign in to LeadRadar</h1>
+        <p className="mt-1 text-sm text-muted">Use your owner account.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="block text-sm font-medium text-foreground-secondary">
               Email
             </label>
             <input
@@ -52,12 +52,12 @@ export function LoginPage(): ReactElement {
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-border bg-input px-3 py-2 text-foreground placeholder:text-muted focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground-secondary">
               Password
             </label>
             <input
@@ -67,12 +67,15 @@ export function LoginPage(): ReactElement {
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-border bg-input px-3 py-2 text-foreground placeholder:text-muted focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus"
             />
           </div>
 
           {errorMessage ? (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p
+              role="alert"
+              className="rounded-md border border-danger bg-danger-surface px-3 py-2 text-sm text-danger"
+            >
               {errorMessage}
             </p>
           ) : null}
@@ -80,7 +83,7 @@ export function LoginPage(): ReactElement {
           <button
             type="submit"
             disabled={loginMutation.isPending}
-            className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-app-background disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loginMutation.isPending ? 'Signing in…' : 'Sign in'}
           </button>

@@ -22,6 +22,8 @@ const prospectSchema = new Schema(
       reason: String,
       evaluatedAt: Date,
       model: String,
+      promptVersion: String,
+      schemaVersion: String,
       verticalProfileVersion: Number,
     },
     contact: {
@@ -47,6 +49,9 @@ const prospectSchema = new Schema(
       intent: { type: String, enum: ['POSITIVE','QUESTION','LATER','REFERRAL','NEGATIVE','UNSUBSCRIBE','OUT_OF_OFFICE','REVIEW'] },
       confidence: Number,
       classifiedAt: Date,
+      model: String,
+      promptVersion: String,
+      schemaVersion: String,
     },
   },
   { timestamps: true, collection: 'prospects' },

@@ -4,7 +4,7 @@ import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { enqueueJob } from '../jobs/job.service';
 import { OutreachPolicyEvaluationModel } from '../outreach-policy/outreach-policy.model';
-import { evaluateOutreachPolicy, OUTREACH_POLICY_VERSION } from '../outreach-policy/outreach-policy.service';
+import { evaluateOutreachPolicyForSend, OUTREACH_POLICY_VERSION } from '../outreach-policy/outreach-policy.service';
 import { ProspectModel } from '../prospects/prospect.model';
 
 async function ensureProviderSequence(
@@ -121,7 +121,12 @@ async function startSequenceWhenBatchReady(campaignId: string, hunter: HunterCli
   await enqueueJob({
     workspaceId: campaign.workspaceId,
     type: 'RECOMPUTE_CAMPAIGN_METRICS',
-    payload: { campaignId: campaign._id.toString() },
+    idempotencyKey: `RECOMPUTE_CAMPAIGN_METRICS:delivery:${campaign._id.toString()}:${campaign.sequence.providerSequenceId}:0`,
+    payload: {
+      campaignId: campaign._id.toString(),
+      providerSequenceId: campaign.sequence.providerSequenceId,
+      deliveryCheck: 0,
+    },
     runAt: new Date(Date.now() + 60_000),
     maxAttempts: 20,
   });
@@ -161,8 +166,9 @@ export async function processReleaseJob(
     throw new Error('CONTACT_NOT_VERIFIED');
   }
 
-  const policy = await evaluateOutreachPolicy({
+  const policy = await evaluateOutreachPolicyForSend({
     workspaceId: campaign.workspaceId,
+    campaignId: campaign._id,
     prospectId: prospect._id,
     normalizedEmail: prospect.contact.normalizedEmail,
     countryCode: prospect.identity.countryCode,

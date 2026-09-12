@@ -82,6 +82,7 @@ export async function processReplyJob(payload: Record<string, unknown>, config: 
   await enqueueJob({
     workspaceId: prospect.workspaceId,
     type: 'CLASSIFY_REPLY',
+    idempotencyKey: `CLASSIFY_REPLY:${integrationEventId}`,
     payload: {
       integrationEventId,
       prospectId,

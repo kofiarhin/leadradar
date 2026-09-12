@@ -56,6 +56,9 @@ const campaignSchema = new Schema(
       approvedVersion: Number,
       approvedAt: Date,
       approvedProspectIds: { type: [Schema.Types.ObjectId], default: [] },
+      model: String,
+      promptVersion: String,
+      schemaVersion: String,
       providerSequenceId: String,
       providerState: {
         type: String,

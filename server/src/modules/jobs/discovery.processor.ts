@@ -9,6 +9,9 @@ export async function processDiscoveryJob(
 ): Promise<void> {
   const campaignId = typeof payload.campaignId === 'string' ? payload.campaignId : undefined;
   const phase = typeof payload.phase === 'string' ? payload.phase : undefined;
+  const pollIteration = typeof payload.pollIteration === 'number' && Number.isInteger(payload.pollIteration)
+    ? payload.pollIteration
+    : 0;
   if (!campaignId || !phase) throw new Error('INVALID_DISCOVERY_JOB');
 
   const campaign = await CampaignModel.findById(campaignId);
@@ -24,7 +27,8 @@ export async function processDiscoveryJob(
     await enqueueJob({
       workspaceId: campaign.workspaceId,
       type: 'INGEST_DISCOVERY_RESULTS',
-      payload: { campaignId, phase: 'POLL' },
+      idempotencyKey: `INGEST_DISCOVERY_RESULTS:${campaignId}:${run.id}:POLL:0`,
+      payload: { campaignId, phase: 'POLL', pollIteration: 0, runId: run.id },
       runAt: new Date(Date.now() + 5_000),
       maxAttempts: 12,
     });
@@ -36,10 +40,12 @@ export async function processDiscoveryJob(
   const run = await apify.getRun(runId);
 
   if (['READY', 'RUNNING'].includes(run.status)) {
+    const nextIteration = pollIteration + 1;
     await enqueueJob({
       workspaceId: campaign.workspaceId,
       type: 'INGEST_DISCOVERY_RESULTS',
-      payload: { campaignId, phase: 'POLL' },
+      idempotencyKey: `INGEST_DISCOVERY_RESULTS:${campaignId}:${runId}:POLL:${nextIteration}`,
+      payload: { campaignId, phase: 'POLL', pollIteration: nextIteration, runId },
       runAt: new Date(Date.now() + 10_000),
       maxAttempts: 12,
     });
@@ -52,7 +58,7 @@ export async function processDiscoveryJob(
     return;
   }
 
-  const items = await apify.getDiscoveryItems(runId);
+  const items = await apify.getDiscoveryItems(runId, campaign.source.postUrl);
   campaign.set({
     status: 'PROCESSING',
     'discovery.completedAt': new Date(),
@@ -65,6 +71,7 @@ export async function processDiscoveryJob(
   await enqueueJob({
     workspaceId: campaign.workspaceId,
     type: 'QUALIFY_PROSPECT',
-    payload: { campaignId, discoveryItems: items },
+    idempotencyKey: `QUALIFY_PROSPECT:${campaignId}:${runId}`,
+    payload: { campaignId, discoveryItems: items, discoveryRunId: runId },
   });
 }

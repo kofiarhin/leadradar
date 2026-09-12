@@ -1,5 +1,9 @@
 import type { AppConfig } from '../../config/env';
-import { NvidiaClient } from '../../providers/nvidia/nvidia.client';
+import {
+  NVIDIA_PROMPT_VERSION,
+  NVIDIA_SCHEMA_VERSION,
+  NvidiaClient,
+} from '../../providers/nvidia/nvidia.client';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { IntegrationEventModel } from '../integrations/integration-event.model';
 import { OpportunityModel } from '../opportunities/opportunity.model';
@@ -12,10 +16,14 @@ function priorityFor(intent: string): 'HIGH' | 'MEDIUM' | 'LOW' {
   return 'LOW';
 }
 
-function statusFor(intent: string): 'OPEN' | 'READY_TO_REPLY' | 'READY_TO_BOOK' | 'FOLLOW_UP_LATER' | 'CLOSED_LOST' {
+export function opportunityStatusForIntent(
+  intent: string,
+): 'OPEN' | 'NEEDS_REVIEW' | 'READY_TO_REPLY' | 'READY_TO_BOOK' | 'FOLLOW_UP_LATER' | 'CLOSED_LOST' | undefined {
+  if (intent === 'OUT_OF_OFFICE') return undefined;
+  if (intent === 'REVIEW') return 'NEEDS_REVIEW';
   if (intent === 'POSITIVE') return 'READY_TO_BOOK';
-  if (['QUESTION', 'REFERRAL', 'REVIEW'].includes(intent)) return 'READY_TO_REPLY';
-  if (intent === 'LATER' || intent === 'OUT_OF_OFFICE') return 'FOLLOW_UP_LATER';
+  if (['QUESTION', 'REFERRAL'].includes(intent)) return 'READY_TO_REPLY';
+  if (intent === 'LATER') return 'FOLLOW_UP_LATER';
   if (intent === 'NEGATIVE' || intent === 'UNSUBSCRIBE') return 'CLOSED_LOST';
   return 'OPEN';
 }
@@ -51,6 +59,9 @@ export async function processReplyClassificationJob(
       intent: classification.intent,
       confidence: classification.confidence,
       classifiedAt: new Date(),
+      model: config.nvidiaModel,
+      promptVersion: NVIDIA_PROMPT_VERSION,
+      schemaVersion: NVIDIA_SCHEMA_VERSION,
     },
   });
   await prospect.save();
@@ -71,7 +82,15 @@ export async function processReplyClassificationJob(
     );
   }
 
-  const draftReply = ['POSITIVE','QUESTION','LATER','REFERRAL','REVIEW'].includes(classification.intent)
+  const status = opportunityStatusForIntent(classification.intent);
+  if (!status) {
+    event.set({ status: 'PROCESSED', processedAt: new Date() });
+    await event.save();
+    return;
+  }
+
+  const shouldDraftReply = ['POSITIVE','QUESTION','LATER','REFERRAL'].includes(classification.intent);
+  const draftReply = shouldDraftReply
     ? await nvidia.draftReply({ prospect: prospect.identity, latestReply: bodyText, classification })
     : undefined;
 
@@ -80,13 +99,23 @@ export async function processReplyClassificationJob(
     {
       $set: {
         ...(campaignId ? { campaignId } : {}),
-        status: statusFor(classification.intent),
+        status,
         intent: classification.intent,
         priority: priorityFor(classification.intent),
         confidence: classification.confidence,
         summary: classification.summary,
         recommendedAction: classification.recommendedAction,
-        ...(draftReply ? { draftReply } : {}),
+        model: config.nvidiaModel,
+        promptVersion: NVIDIA_PROMPT_VERSION,
+        schemaVersion: NVIDIA_SCHEMA_VERSION,
+        ...(draftReply
+          ? {
+              draftReply,
+              draftModel: config.nvidiaModel,
+              draftPromptVersion: NVIDIA_PROMPT_VERSION,
+              draftSchemaVersion: NVIDIA_SCHEMA_VERSION,
+            }
+          : {}),
       },
       $setOnInsert: {
         workspaceId: prospect.workspaceId,

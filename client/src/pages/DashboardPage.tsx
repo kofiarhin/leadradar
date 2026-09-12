@@ -18,6 +18,11 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
+const fieldClassName =
+  'rounded-md border border-border bg-input px-3 py-2 text-foreground placeholder:text-muted focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus';
+const secondaryButtonClassName =
+  'rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground-secondary hover:bg-surface-hover hover:text-foreground focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-app-background';
+
 export function DashboardPage(): ReactElement {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -93,18 +98,24 @@ export function DashboardPage(): ReactElement {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-app-background px-4 py-10 text-foreground">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-slate-600">Workspace</p>
-            {workspace.isPending ? <p role="status" className="text-sm text-slate-600">Loading…</p> : workspace.isError ? <p role="alert" className="text-sm text-red-700">The workspace could not be loaded.</p> : <h1 className="text-2xl font-semibold text-slate-900">{workspace.data.name}</h1>}
+            <p className="text-sm text-muted">Workspace</p>
+            {workspace.isPending ? (
+              <p role="status" aria-live="polite" className="text-sm text-muted">Loading…</p>
+            ) : workspace.isError ? (
+              <p role="alert" className="text-sm text-danger">The workspace could not be loaded.</p>
+            ) : (
+              <h1 className="text-2xl font-semibold text-foreground">{workspace.data.name}</h1>
+            )}
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link to="/leads" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Leads</Link>
-            <Link to="/opportunities" className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">Opportunities</Link>
-            <Link to="/campaigns/new" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white">New campaign</Link>
-            <button type="button" onClick={handleSignOut} disabled={logoutMutation.isPending} className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60">{logoutMutation.isPending ? 'Signing out…' : 'Sign out'}</button>
+            <Link to="/leads" className={secondaryButtonClassName}>Leads</Link>
+            <Link to="/opportunities" className={secondaryButtonClassName}>Opportunities</Link>
+            <Link to="/campaigns/new" className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-app-background">New campaign</Link>
+            <button type="button" onClick={handleSignOut} disabled={logoutMutation.isPending} className={`${secondaryButtonClassName} disabled:cursor-not-allowed disabled:opacity-60`}>{logoutMutation.isPending ? 'Signing out…' : 'Sign out'}</button>
           </div>
         </header>
 
@@ -118,33 +129,33 @@ export function DashboardPage(): ReactElement {
             ['Ready to book', totals.readyToBook],
             ['Booked calls', totals.booked],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+            <div key={label} className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+              <p className="mt-2 text-2xl font-semibold text-foreground">{value}</p>
             </div>
           ))}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <section className="rounded-lg border border-border bg-surface p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <div><h2 className="text-lg font-semibold text-slate-900">Recent campaigns</h2><p className="text-sm text-slate-600">Public LinkedIn discovery runs and processing state.</p></div>
+            <div><h2 className="text-lg font-semibold text-foreground">Recent campaigns</h2><p className="text-sm text-muted">Public LinkedIn discovery runs and processing state.</p></div>
           </div>
-          {campaigns.isPending ? <p role="status" className="text-sm text-slate-600">Loading campaigns…</p> : campaigns.isError ? <p role="alert" className="text-sm text-red-700">Campaigns could not be loaded.</p> : campaigns.data.length === 0 ? <p className="text-sm text-slate-600">No campaigns yet.</p> : <ul className="divide-y divide-slate-200">{campaigns.data.slice(0, 5).map((campaign) => <li key={campaign.id} className="flex items-center justify-between gap-4 py-3"><div><Link to={`/campaigns/${campaign.id}`} className="font-medium text-slate-900 underline">{campaign.name}</Link><p className="text-xs text-slate-500">{campaign.status}</p></div><span className="text-sm text-slate-600">{campaign.metricsSnapshot.signals} signals</span></li>)}</ul>}
+          {campaigns.isPending ? <p role="status" className="text-sm text-muted">Loading campaigns…</p> : campaigns.isError ? <p role="alert" className="text-sm text-danger">Campaigns could not be loaded.</p> : campaigns.data.length === 0 ? <p className="text-sm text-muted">No campaigns yet.</p> : <ul className="divide-y divide-border">{campaigns.data.slice(0, 5).map((campaign) => <li key={campaign.id} className="flex items-center justify-between gap-4 py-3"><div><Link to={`/campaigns/${campaign.id}`} className="font-medium text-foreground underline">{campaign.name}</Link><p className="text-xs text-muted">{campaign.status}</p></div><span className="text-sm text-foreground-secondary">{campaign.metricsSnapshot.signals} signals</span></li>)}</ul>}
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
-          <div className="mb-5"><h2 className="text-lg font-semibold text-slate-900">Vertical profile</h2><p className="mt-1 text-sm text-slate-600">Define who LeadRadar should qualify and what the outreach is trying to achieve.</p></div>
-          {profile.isPending ? <p role="status" className="text-sm text-slate-600">Loading profile…</p> : profile.isError ? <p role="alert" className="text-sm text-red-700">The vertical profile could not be loaded.</p> : (
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <div className="mb-5"><h2 className="text-lg font-semibold text-foreground">Vertical profile</h2><p className="mt-1 text-sm text-muted">Define who LeadRadar should qualify and what the outreach is trying to achieve.</p></div>
+          {profile.isPending ? <p role="status" className="text-sm text-muted">Loading profile…</p> : profile.isError ? <p role="alert" className="text-sm text-danger">The vertical profile could not be loaded.</p> : (
             <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
-              <label className="grid gap-1 text-sm text-slate-700">Profile name<input value={name} onChange={(e) => setName(e.target.value)} required className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700">Outreach tone<input value={tone} onChange={(e) => setTone(e.target.value)} required className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700 md:col-span-2">Offer<textarea value={offer} onChange={(e) => setOffer(e.target.value)} required rows={3} className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700">Target roles<input value={roles} onChange={(e) => setRoles(e.target.value)} required className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700">Target industries<input value={industries} onChange={(e) => setIndustries(e.target.value)} required className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700 md:col-span-2">Target regions<input value={regions} onChange={(e) => setRegions(e.target.value)} required className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700">Positive signals<textarea value={positiveSignals} onChange={(e) => setPositiveSignals(e.target.value)} required rows={3} className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <label className="grid gap-1 text-sm text-slate-700">Negative signals<textarea value={negativeSignals} onChange={(e) => setNegativeSignals(e.target.value)} required rows={3} className="rounded-md border border-slate-300 px-3 py-2" /></label>
-              <div className="flex items-center gap-3 md:col-span-2"><button type="submit" disabled={saveMutation.isPending} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">{saveMutation.isPending ? 'Saving…' : profile.data ? 'Save changes' : 'Create profile'}</button>{saveMutation.isSuccess ? <p role="status" className="text-sm text-green-700">Profile saved.</p> : null}{saveMutation.isError ? <p role="alert" className="text-sm text-red-700">The profile could not be saved.</p> : null}</div>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Profile name<input value={name} onChange={(e) => setName(e.target.value)} required className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Outreach tone<input value={tone} onChange={(e) => setTone(e.target.value)} required className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary md:col-span-2">Offer<textarea value={offer} onChange={(e) => setOffer(e.target.value)} required rows={3} className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Target roles<input value={roles} onChange={(e) => setRoles(e.target.value)} required placeholder="Founder, Head of Sales" className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Target industries<input value={industries} onChange={(e) => setIndustries(e.target.value)} required placeholder="SaaS, Agencies" className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary md:col-span-2">Target regions<input value={regions} onChange={(e) => setRegions(e.target.value)} required placeholder="United Kingdom, United States" className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Positive signals<textarea value={positiveSignals} onChange={(e) => setPositiveSignals(e.target.value)} required rows={3} placeholder="Hiring salespeople, discussing pipeline" className={fieldClassName} /></label>
+              <label className="grid gap-1 text-sm text-foreground-secondary">Negative signals<textarea value={negativeSignals} onChange={(e) => setNegativeSignals(e.target.value)} required rows={3} placeholder="Student, recruiter, direct competitor" className={fieldClassName} /></label>
+              <div className="flex items-center gap-3 md:col-span-2"><button type="submit" disabled={saveMutation.isPending} className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-60">{saveMutation.isPending ? 'Saving…' : profile.data ? 'Save changes' : 'Create profile'}</button>{saveMutation.isSuccess ? <p role="status" className="rounded-md bg-success-surface px-2 py-1 text-sm text-success">Profile saved.</p> : null}{saveMutation.isError ? <p role="alert" className="rounded-md bg-danger-surface px-2 py-1 text-sm text-danger">The profile could not be saved.</p> : null}</div>
             </form>
           )}
         </section>

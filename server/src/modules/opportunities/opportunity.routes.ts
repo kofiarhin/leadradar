@@ -6,6 +6,7 @@ import { createOriginGuard, requireJsonContentType } from '../../middleware/requ
 import { authContext } from '../../middleware/require-auth';
 import { HunterClient } from '../../providers/hunter/hunter.client';
 import { MessageModel } from '../conversations/message.model';
+import { evaluateOutreachPolicyForSend } from '../outreach-policy/outreach-policy.service';
 import { ProspectModel } from '../prospects/prospect.model';
 import { OpportunityModel } from './opportunity.model';
 
@@ -73,7 +74,7 @@ export function createOpportunityRouter(config: AppConfig): Router {
         }
         const prospect = await ProspectModel.findOne({ _id: opportunity.prospectId, workspaceId });
         const email = prospect?.contact?.normalizedEmail;
-        if (!prospect || !email) {
+        if (!prospect || prospect.contact.status !== 'VERIFIED' || !email) {
           res.status(409).json({ error: { code: 'CONTACT_NOT_SENDABLE', message: 'Prospect has no verified business email.' } });
           return;
         }
@@ -102,6 +103,24 @@ export function createOpportunityRouter(config: AppConfig): Router {
           .update(`${subject}\n${replyBody}`)
           .digest('hex')
           .slice(0, 32)}`;
+
+        const policy = await evaluateOutreachPolicyForSend({
+          workspaceId,
+          ...(opportunity.campaignId ? { campaignId: opportunity.campaignId } : {}),
+          prospectId: prospect._id,
+          normalizedEmail: email,
+          countryCode: prospect.identity.countryCode,
+          companyType: prospect.identity.companyType,
+          allowExistingRelationship: true,
+        });
+        if (policy.decision === 'BLOCKED') {
+          res.status(409).json({ error: { code: 'OUTREACH_BLOCKED', message: 'Reply is blocked by suppression or outreach policy.' } });
+          return;
+        }
+        if (policy.decision === 'REVIEW') {
+          res.status(409).json({ error: { code: 'OUTREACH_REVIEW_REQUIRED', message: 'Resolve outreach policy review before sending this reply.' } });
+          return;
+        }
 
         const hunter = new HunterClient({ apiKey: config.hunterApiKey });
         const providerMessageId = await hunter.sendManualReply({
