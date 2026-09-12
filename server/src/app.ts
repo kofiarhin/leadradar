@@ -13,37 +13,26 @@ import { requestId } from './middleware/request-id';
 import { requireAuth } from './middleware/require-auth';
 import { createSessionMiddleware } from './middleware/session';
 import { authRouter } from './modules/auth/auth.routes';
+import { createCampaignProspectRouter } from './modules/campaigns/campaign-prospect.routes';
+import { createCampaignRouter } from './modules/campaigns/campaign.routes';
+import { createHunterWebhookRouter } from './modules/integrations/hunter-webhook.routes';
+import { createOpportunityRouter } from './modules/opportunities/opportunity.routes';
+import { createProspectRouter } from './modules/prospects/prospect.routes';
 import { createVerticalProfileRouter } from './modules/verticals/vertical-profile.routes';
 import { workspaceRouter } from './modules/workspaces/workspace.routes';
 
 export interface AppOptions {
-  /** Overridable so tests can exercise throttling without waiting out a real window. */
   loginRateLimit?: LoginRateLimitOptions;
 }
 
-/**
- * Builds the Express application without connecting to MongoDB and without listening.
- *
- * Only server.ts opens a port, so tests can mount this app directly against the
- * in-memory database.
- *
- * No CORS middleware is installed, deliberately: the client is served from the same
- * origin as the API in both development (Vite proxies /api) and production, so no
- * cross-origin caller is approved. Emitting no Access-Control-Allow-Origin header is
- * the strictest default, and adding one is a security-posture change.
- */
 export function createApp(config: AppConfig = loadConfig(), options: AppOptions = {}): Express {
   const app = express();
 
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
-
   app.use(requestId);
   app.use(createSessionMiddleware(config));
 
-  // Order matters: an untrusted origin is refused before the body is parsed and before
-  // the rate limiter is consumed, so a cross-site attacker cannot exhaust a legitimate
-  // user's login attempts.
   const stateChanging = [createOriginGuard(config), requireJsonContentType];
 
   const authRoutes = express.Router();
@@ -56,16 +45,19 @@ export function createApp(config: AppConfig = loadConfig(), options: AppOptions 
   sessionRead.use(authRouter);
 
   app.use(`${API_BASE_PATH}/auth`, (req, res, next) => {
-    // Reads are safe: only non-GET requests pass through the state-changing guards.
     (req.method === 'GET' ? sessionRead : authRoutes)(req, res, next);
   });
 
-  // Protected business routes are grouped behind requireAuth, so anything mounted here
-  // later is default-deny without needing to remember to guard it.
+  app.use(`${API_BASE_PATH}/webhooks`, createHunterWebhookRouter(config));
+
   const protectedRouter = express.Router();
   protectedRouter.use(requireAuth);
   protectedRouter.use('/workspace', workspaceRouter);
   protectedRouter.use('/vertical-profile', createVerticalProfileRouter(config));
+  protectedRouter.use('/campaigns', createCampaignProspectRouter());
+  protectedRouter.use('/campaigns', createCampaignRouter(config));
+  protectedRouter.use('/leads', createProspectRouter(config));
+  protectedRouter.use('/opportunities', createOpportunityRouter(config));
   app.use(API_BASE_PATH, protectedRouter);
 
   app.use(notFoundHandler);
