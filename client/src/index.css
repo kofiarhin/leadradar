@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+
+  --lr-background: #09090b;
+  --lr-surface: #111113;
+  --lr-surface-hover: #1b1b20;
+  --lr-border: #2a2a30;
+  --lr-foreground: #f4f4f5;
+  --lr-foreground-secondary: #d4d4d8;
+  --lr-muted: #a1a1aa;
+  --lr-accent: #6366f1;
+  --lr-accent-hover: #4f46e5;
+  --lr-on-accent: #ffffff;
+  --lr-focus: #818cf8;
+  --lr-success: #4ade80;
+  --lr-success-surface: #052e16;
+  --lr-danger: #f87171;
+  --lr-danger-surface: #450a0a;
+  --lr-input: #18181b;
+}
+
+@theme inline {
+  --color-app-background: var(--lr-background);
+  --color-surface: var(--lr-surface);
+  --color-surface-hover: var(--lr-surface-hover);
+  --color-border: var(--lr-border);
+  --color-foreground: var(--lr-foreground);
+  --color-foreground-secondary: var(--lr-foreground-secondary);
+  --color-muted: var(--lr-muted);
+  --color-accent: var(--lr-accent);
+  --color-accent-hover: var(--lr-accent-hover);
+  --color-on-accent: var(--lr-on-accent);
+  --color-focus: var(--lr-focus);
+  --color-success: var(--lr-success);
+  --color-success-surface: var(--lr-success-surface);
+  --color-danger: var(--lr-danger);
+  --color-danger-surface: var(--lr-danger-surface);
+  --color-input: var(--lr-input);
+}
+
+@layer base {
+  html {
+    background-color: var(--lr-background);
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--lr-background);
+    color: var(--lr-foreground);
+  }
+
+  ::selection {
+    background-color: var(--lr-accent);
+    color: var(--lr-on-accent);
+  }
+}

@@ -6,12 +6,19 @@ Product authority: [`docs/PRD.md`](docs/PRD.md). Technical authority: [`docs/SPE
 
 ## Status
 
-Owner authentication only. Campaigns, prospects, qualification, enrichment, outreach, and
-opportunities are specified but not implemented — see [`roadmap.md`](roadmap.md).
+Owner authentication and the editable vertical profile. Campaigns, prospects,
+qualification, enrichment, outreach, and opportunities are specified but not implemented —
+see [`roadmap.md`](roadmap.md).
+
+`npm test`, `npm run typecheck`, `npm run lint`, and `npm run build` are green locally on
+`fix/003-stabilize-foundation`. Browser verification of the login and vertical-profile
+flows has not been run.
 
 ## Requirements
 
-- Node `>=20.19.0` (declared in `engines`)
+- Node `>=22.22.2` (declared in `engines`; CI pins `22.22.2`). The frontend test
+  dependencies (`jsdom`, `@testing-library/jest-dom`, `undici`) require Node 22.22.2 or
+  newer, and Node 20 is end-of-life.
 - npm 10+
 - A MongoDB instance for running the app. Tests do not need one.
 

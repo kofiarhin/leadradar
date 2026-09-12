@@ -85,7 +85,10 @@ describe('DashboardPage', () => {
     await user.type(screen.getByLabelText(/negative signals/i), 'Student');
     await user.click(screen.getByRole('button', { name: /create profile/i }));
 
-    expect(verticalProfileApi.saveVerticalProfile).toHaveBeenCalledWith(
+    // react-query calls a mutationFn as (variables, context), so only the first
+    // argument carries the profile payload this test is about.
+    const [payload] = vi.mocked(verticalProfileApi.saveVerticalProfile).mock.calls[0] ?? [];
+    expect(payload).toEqual(
       expect.objectContaining({
         targetRoles: ['Founder', 'Head of Sales'],
         outreachGoal: 'BOOK_CALL',
