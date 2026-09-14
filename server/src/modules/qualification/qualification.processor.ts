@@ -5,6 +5,7 @@ import {
   NVIDIA_SCHEMA_VERSION,
   NvidiaClient,
 } from '../../providers/nvidia/nvidia.client';
+import { Types } from 'mongoose';
 import { CampaignProspectModel } from '../campaigns/campaign-prospect.model';
 import { CampaignModel } from '../campaigns/campaign.model';
 import { enqueueJob } from '../jobs/job.service';
@@ -24,7 +25,7 @@ function normalizeLinkedInUrl(value?: string): string | undefined {
   }
 }
 
-async function resolveProspect(workspaceId: unknown, item: ApifyDiscoveryItem) {
+async function resolveProspect(workspaceId: Types.ObjectId, item: ApifyDiscoveryItem) {
   const normalizedLinkedinUrl = normalizeLinkedInUrl(item.profileUrl);
   const existing = normalizedLinkedinUrl
     ? await ProspectModel.findOne({ workspaceId, 'identity.normalizedLinkedinUrl': normalizedLinkedinUrl })
