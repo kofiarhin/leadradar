@@ -34,6 +34,7 @@ describe('HunterClient sequence safety contracts', () => {
     expect(init?.headers).toMatchObject({ 'Idempotency-Key': 'sequence-key' });
     expect(JSON.parse(String(init?.body))).toEqual({
       name: 'Campaign',
+      add_unsubscribe_link: true,
       email_account_ids: [128],
     });
   });
