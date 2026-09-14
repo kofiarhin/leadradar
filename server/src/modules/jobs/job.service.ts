@@ -94,7 +94,7 @@ export async function failJob(job: InstanceType<typeof JobModel>, error: unknown
   job.set({
     status: exhausted ? 'DEAD' : 'PENDING',
     runAt: exhausted ? job.runAt : new Date(Date.now() + Math.min(60_000, 2 ** job.attempts * 1_000)),
-    lastErrorCode: message.split(':')[0].slice(0, 120),
+    lastErrorCode: (message.split(':')[0] ?? 'UNKNOWN_JOB_FAILURE').slice(0, 120),
     lastErrorMessage: message.slice(0, 500),
     lockedAt: undefined,
     lockedBy: undefined,

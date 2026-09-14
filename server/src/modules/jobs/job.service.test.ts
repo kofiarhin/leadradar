@@ -21,7 +21,9 @@ describe('job service', () => {
     });
 
     expect(updateOne).toHaveBeenCalledTimes(1);
-    const [filter, update, options] = updateOne.mock.calls[0];
+    const filter = updateOne.mock.calls[0]?.[0];
+    const update = updateOne.mock.calls[0]?.[1];
+    const options = updateOne.mock.calls[0]?.[2];
     expect(filter).toEqual({ idempotencyKey: expect.stringMatching(/^ENRICH_PROSPECT:/) });
     expect(update).toMatchObject({
       $setOnInsert: {
@@ -40,7 +42,9 @@ describe('job service', () => {
     await claimNextJob('worker-test');
 
     expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
-    const [filter, update, options] = findOneAndUpdate.mock.calls[0];
+    const filter = findOneAndUpdate.mock.calls[0]?.[0];
+    const update = findOneAndUpdate.mock.calls[0]?.[1];
+    const options = findOneAndUpdate.mock.calls[0]?.[2];
     expect(filter).toMatchObject({
       $and: [
         {

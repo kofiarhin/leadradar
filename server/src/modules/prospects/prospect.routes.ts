@@ -150,10 +150,11 @@ export function createProspectRouter(config: AppConfig): Router {
   router.patch('/:prospectId/campaigns/:campaignId/policy-review', ...mutation, async (req, res, next) => {
     try {
       const { workspaceId } = authContext(req);
-      const decision = String((req.body as { decision?: unknown }).decision ?? '');
-      if (!['ALLOWED', 'BLOCKED'].includes(decision)) {
+      const rawDecision = String((req.body as { decision?: unknown }).decision ?? '');
+      if (!['ALLOWED', 'BLOCKED'].includes(rawDecision)) {
         return void res.status(400).json({ error: { code: 'INVALID_REVIEW_DECISION', message: 'Policy review must resolve to ALLOWED or BLOCKED.' } });
       }
+      const decision = rawDecision as 'ALLOWED' | 'BLOCKED';
 
       const prospect = await ProspectModel.findOne({ _id: req.params.prospectId, workspaceId });
       const campaign = await CampaignModel.findOne({ _id: req.params.campaignId, workspaceId });
@@ -178,7 +179,7 @@ export function createProspectRouter(config: AppConfig): Router {
         evaluatedAt: new Date(),
       });
 
-      join.outreachPolicyDecision = decision as typeof join.outreachPolicyDecision;
+      join.outreachPolicyDecision = decision;
       join.releaseStatus = decision === 'ALLOWED' ? 'READY' : 'BLOCKED';
       prospect.set({ 'outreach.status': decision === 'ALLOWED' ? 'ELIGIBLE' : 'BLOCKED' });
       await Promise.all([join.save(), prospect.save()]);

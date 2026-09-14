@@ -9,7 +9,7 @@ function response(body: unknown = { data: {} }, status = 200): Response {
 
 describe('HunterClient sequence safety contracts', () => {
   it('cancels scheduled emails with the documented campaign recipient delete contract', async () => {
-    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(response());
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(response());
     const client = new HunterClient({ apiKey: 'test-key', fetchImpl });
 
     await client.cancelScheduledEmails('sequence-1', 'lead@example.com');
@@ -22,7 +22,7 @@ describe('HunterClient sequence safety contracts', () => {
   });
 
   it('creates a sequence with the configured sending account', async () => {
-    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(
       response({ data: { id: 42 } }, 201),
     );
     const client = new HunterClient({ apiKey: 'test-key', fetchImpl });
@@ -40,7 +40,7 @@ describe('HunterClient sequence safety contracts', () => {
   });
 
   it('configures every reviewed sequence step in order', async () => {
-    const fetchImpl = jest.fn<typeof fetch>()
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>()
       .mockResolvedValueOnce(response())
       .mockResolvedValueOnce(response());
     const client = new HunterClient({ apiKey: 'test-key', fetchImpl });
@@ -66,7 +66,7 @@ describe('HunterClient sequence safety contracts', () => {
   });
 
   it('sends a reviewed reply with an explicit sender and idempotency key', async () => {
-    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(
+    const fetchImpl = jest.fn<ReturnType<typeof fetch>, Parameters<typeof fetch>>().mockResolvedValue(
       response({ data: { message_id: 'message-1' } }),
     );
     const client = new HunterClient({ apiKey: 'test-key', fetchImpl });

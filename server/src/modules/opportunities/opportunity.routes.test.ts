@@ -53,7 +53,7 @@ const enabledConfig = {
   ...baseConfig,
   outboundMode: 'enabled',
   hunterApiKey: 'hunter-test',
-  hunterEmailAccountId: 'account-test',
+  hunterEmailAccountId: 128,
 } satisfies AppConfig;
 
 function mockOpportunityAndProspect(): void {

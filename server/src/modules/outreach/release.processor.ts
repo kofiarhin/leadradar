@@ -11,7 +11,7 @@ async function ensureProviderSequence(
   campaignId: string,
   approvedVersion: number,
   hunter: HunterClient,
-  emailAccountId: string,
+  emailAccountId: number,
 ): Promise<string> {
   const existing = await CampaignModel.findById(campaignId);
   if (!existing) throw new Error('CAMPAIGN_NOT_FOUND');
@@ -80,7 +80,9 @@ async function ensureProviderSequence(
     );
     return sequenceId;
   } catch (error) {
-    const code = error instanceof Error ? error.message.split(':')[0].slice(0, 120) : 'HUNTER_SEQUENCE_ERROR';
+    const code = error instanceof Error
+      ? (error.message.split(':')[0] ?? 'HUNTER_SEQUENCE_ERROR').slice(0, 120)
+      : 'HUNTER_SEQUENCE_ERROR';
     await CampaignModel.updateOne(
       { _id: claimed._id },
       { $set: { 'sequence.providerState': 'ERROR', 'sequence.providerLastErrorCode': code } },
